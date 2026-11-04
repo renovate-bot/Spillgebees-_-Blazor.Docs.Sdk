@@ -16,5 +16,7 @@
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="All" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" PrivateAssets="All" />
     <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" PrivateAssets="All" />
+    <!-- transitive dependency of Microsoft.Build.Framework; MSBuild must load its own copy at run time, so Microsoft.Build.Locator (MSBL001) requires it excluded like Framework -->
+    <PackageReference Include="Microsoft.NET.StringTools" PrivateAssets="All" ExcludeAssets="runtime" />
   </ItemGroup>
 </Project>
