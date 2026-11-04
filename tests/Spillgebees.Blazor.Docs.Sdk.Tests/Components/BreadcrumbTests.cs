@@ -12,48 +12,54 @@ public class BreadcrumbTests
         using var ctx = new BunitContext();
 
         // act
-        var cut = ctx.Render<Breadcrumb>(p => p.Add(x => x.Section, "components").Add(x => x.PageName, "ExampleView"));
+        var cut = ctx.Render<Breadcrumb>(p => p.Add(x => x.Section, "Components").Add(x => x.PageName, "ExampleView"));
 
         // assert
-        cut.Find(".doc-breadcrumb-segment").TextContent.Should().Be("components");
-        cut.Find(".doc-breadcrumb-current").TextContent.Should().Be("ExampleView");
+        cut.Find(".docs-breadcrumb").TextContent.Should().Contain("Components").And.Contain("ExampleView");
     }
 
     [Test]
-    public void Should_render_api_reference_link_when_provided()
+    public void Should_mark_the_page_name_as_current()
+    {
+        // arrange
+        using var ctx = new BunitContext();
+
+        // act
+        var cut = ctx.Render<Breadcrumb>(p => p.Add(x => x.Section, "Components").Add(x => x.PageName, "ExampleView"));
+
+        // assert
+        cut.Find("[aria-current='page']").TextContent.Should().Be("ExampleView");
+    }
+
+    [Test]
+    public void Should_render_the_section_as_plain_text_without_a_href()
+    {
+        // arrange
+        using var ctx = new BunitContext();
+
+        // act
+        var cut = ctx.Render<Breadcrumb>(p => p.Add(x => x.Section, "Components").Add(x => x.PageName, "ExampleView"));
+
+        // assert
+        cut.FindAll(".docs-breadcrumb a").Should().BeEmpty();
+    }
+
+    [Test]
+    public void Should_link_the_section_when_a_href_is_supplied()
     {
         // arrange
         using var ctx = new BunitContext();
 
         // act
         var cut = ctx.Render<Breadcrumb>(p =>
-            p.Add(x => x.Section, "components")
+            p.Add(x => x.Section, "Components")
                 .Add(x => x.PageName, "ExampleView")
-                .Add(x => x.ApiReferenceUrl, "https://example.com/api")
+                .Add(x => x.SectionHref, "components")
         );
 
         // assert
-        var link = cut.Find("a.doc-breadcrumb-link");
-        link.TextContent.Should().Be("api_ref");
-        link.GetAttribute("href").Should().Be("https://example.com/api");
-    }
-
-    [Test]
-    public void Should_render_source_link_when_provided()
-    {
-        // arrange
-        using var ctx = new BunitContext();
-
-        // act
-        var cut = ctx.Render<Breadcrumb>(p =>
-            p.Add(x => x.Section, "components")
-                .Add(x => x.PageName, "ExampleView")
-                .Add(x => x.SourceUrl, "https://github.com/example/repo")
-        );
-
-        // assert
-        var link = cut.Find("a.doc-breadcrumb-link");
-        link.TextContent.Should().Be("source");
-        link.GetAttribute("href").Should().Be("https://github.com/example/repo");
+        var link = cut.Find(".docs-breadcrumb a");
+        link.GetAttribute("href").Should().Be("components");
+        link.TextContent.Should().Be("Components");
     }
 }

@@ -1,253 +1,449 @@
 @namespace Spillgebees.Blazor.Docs.Sdk
+@using System.Net
 @using Microsoft.AspNetCore.Components
 @using Microsoft.JSInterop
 @using System.Linq
 @using System.Text.RegularExpressions
 @inject IJSRuntime JS
+@inject NavigationManager NavigationManager
 
-@if (TypeInfo is not null)
+@if (_info is not null)
 {
-    <article class="api-doc">
-        <header class="api-doc-header">
-            <h2 class="api-doc-type-name">@TypeInfo.Name</h2>
-            <div class="api-doc-meta">
-                <span class="api-doc-namespace">@TypeInfo.Namespace</span>
-                <span class="api-doc-kind-badge">@TypeInfo.Kind</span>
+    <article class="docs-api">
+        <header>
+            <p class="docs-eyebrow">@_info.Namespace</p>
+            <h1 class="docs-title">@((MarkupString)BreakableTypeName(_info.Name))</h1>
+
+            <div class="docs-meta-row">
+                <span class="docs-chip"><DocIcon Name="@DocIconName.Cube" />@_info.Kind</span>
+                @if (ShowsBaseType)
+                {
+                    <span class="docs-chip" title="@_info.BaseType">
+                        inherits <code>@ShortenTypeName(_info.BaseType)</code>
+                    </span>
+                }
+                @foreach (var contract in _info.Interfaces)
+                {
+                    <span class="docs-chip" title="@contract"><code>@ShortenTypeName(contract)</code></span>
+                }
             </div>
         </header>
 
-        @if (!string.IsNullOrEmpty(TypeInfo.Summary))
+        @if (!string.IsNullOrEmpty(_info.Summary))
         {
-            <div class="api-doc-summary api-doc-rich-text">@RenderDocumentation(TypeInfo.Summary, TypeInfo.SummaryHtml)</div>
+            <div class="docs-prose docs-api-summary">@RenderDocumentation(_info.Summary, _info.SummaryHtml)</div>
         }
-        @if (!string.IsNullOrEmpty(TypeInfo.Remarks))
+        @if (!string.IsNullOrEmpty(_info.Remarks))
         {
-            <div class="api-doc-summary api-doc-rich-text">@RenderDocumentation(TypeInfo.Remarks, TypeInfo.RemarksHtml)</div>
-        }
-
-        @if (!string.IsNullOrEmpty(TypeInfo.BaseType) || TypeInfo.Interfaces.Count > 0)
-        {
-            <section class="api-doc-inheritance">
-                <h3>Inheritance</h3>
-                @if (!string.IsNullOrEmpty(TypeInfo.BaseType))
-                {
-                    <div class="api-doc-base-type">
-                        <span>Base type: </span><code title="@TypeInfo.BaseType">@ShortenTypeName(TypeInfo.BaseType)</code>
-                    </div>
-                }
-                @if (TypeInfo.Interfaces.Count > 0)
-                {
-                    <div class="api-doc-interfaces">
-                        <span>Implements: </span>
-                        @foreach (var iface in TypeInfo.Interfaces)
-                        {
-                            <code title="@iface">@ShortenTypeName(iface)</code>
-                        }
-                    </div>
-                }
-            </section>
+            <div class="docs-prose docs-api-summary">@RenderDocumentation(_info.Remarks, _info.RemarksHtml)</div>
         }
 
-        @if (TypeInfo.GenericParameters.Count > 0)
+        @if (_info.GenericParameters.Count > 0)
         {
-            <section class="api-doc-generic-parameters">
-                <h3>Type Parameters</h3>
-                <ul>
-                    @foreach (var param in TypeInfo.GenericParameters)
-                    {
-                        <li>
-                            <code>@param.Name</code>
-                            @if (param.Constraints.Count > 0)
-                            {
-                                <span> where </span>
-                                @foreach (var constraint in param.Constraints)
-                                {
-                                    <code title="@constraint">@ShortenTypeName(constraint)</code>
-                                }
-                            }
-                        </li>
-                    }
-                </ul>
-            </section>
-        }
-
-        @if (TypeInfo.Properties.Count > 0)
-        {
-            <section class="api-doc-section">
-                <button class="api-doc-section-toggle" @onclick="@(() => ToggleSection("properties"))">
-                    // properties <span class="api-doc-section-indicator">@(IsSectionOpen("properties") ? "−" : "+")</span>
-                </button>
-                @if (IsSectionOpen("properties"))
-                {
-                    <div class="api-doc-definitions">
-                        @foreach (var prop in TypeInfo.Properties)
-                        {
-                            <div class="api-doc-definition">
-                                <div class="api-doc-definition-name">@prop.Name</div>
-                                <div class="api-doc-definition-meta">
-                                    <span class="api-doc-definition-type" title="@prop.Type">@ShortenTypeName(prop.Type)</span>
-                                    @if (prop.IsParameter)
-                                    {
-                                        <span class="api-doc-badge-required">blazor parameter</span>
-                                    }
-                                    @if (prop.IsCascadingParameter)
-                                    {
-                                        <span class="api-doc-badge-required">cascading parameter</span>
-                                    }
-                                    @if (prop.DefaultValue is not null)
-                                    {
-                                        <span class="api-doc-default-value">= @prop.DefaultValue</span>
-                                    }
-                                </div>
-                                @if (!string.IsNullOrEmpty(prop.Summary))
-                                {
-                                    <div class="api-doc-definition-desc api-doc-rich-text">@RenderDocumentation(prop.Summary, prop.SummaryHtml)</div>
-                                }
-                            </div>
-                        }
-                    </div>
-                }
-            </section>
-        }
-
-        @if (TypeInfo.Methods.Count > 0)
-        {
-            <section class="api-doc-section">
-                <button class="api-doc-section-toggle" @onclick="@(() => ToggleSection("methods"))">
-                    // methods <span class="api-doc-section-indicator">@(IsSectionOpen("methods") ? "−" : "+")</span>
-                </button>
-                @if (IsSectionOpen("methods"))
-                {
-                    <div class="api-doc-definitions">
-                        @foreach (var method in TypeInfo.Methods)
-                        {
-                            var genericParameters = method.GenericParameters.Count == 0
-                                ? ""
-                                : $"<{string.Join(", ", method.GenericParameters.Select(p => p.Name))}>";
-                            var parameterList = string.Join(", ", method.Parameters.Select(p => FormatParameter(p, shortenTypes: true)));
-                            var constraints = method.GenericParameters.Count == 0
-                                ? ""
-                                : " " + string.Join(" ", method.GenericParameters
-                                    .Where(p => p.Constraints.Count > 0)
-                                    .Select(p => $"where {p.Name} : {string.Join(", ", p.Constraints.Select(ShortenTypeName))}"));
-                            var sig = $"{ShortenTypeName(method.ReturnType)} {method.Name}{genericParameters}({parameterList}){constraints}";
-                            var fullSig = $"{method.ReturnType} {method.Name}{genericParameters}({string.Join(", ", method.Parameters.Select(p => FormatParameter(p, shortenTypes: false)))})";
-                            <div class="api-doc-definition api-doc-method-def">
-                                <div class="api-doc-method-signature">
-                                    <pre title="@fullSig"><code class="language-csharp">@sig</code></pre>
-                                </div>
-                                @if (!string.IsNullOrEmpty(method.Summary))
-                                {
-                                    <div class="api-doc-definition-desc api-doc-rich-text">@RenderDocumentation(method.Summary, method.SummaryHtml)</div>
-                                }
-                                @foreach (var parameter in method.Parameters.Where(p => !string.IsNullOrEmpty(p.Summary)))
-                                {
-                                    <div class="api-doc-definition-desc api-doc-rich-text"><code>@parameter.Name</code> @RenderDocumentation(parameter.Summary, parameter.SummaryHtml)</div>
-                                }
-                            </div>
-                        }
-                    </div>
-                }
-            </section>
-        }
-
-        @if (TypeInfo.Events.Count > 0)
-        {
-            <section class="api-doc-section">
-                <button class="api-doc-section-toggle" @onclick="@(() => ToggleSection("events"))">
-                    // events <span class="api-doc-section-indicator">@(IsSectionOpen("events") ? "−" : "+")</span>
-                </button>
-                @if (IsSectionOpen("events"))
-                {
-                    <div class="api-doc-definitions">
-                        @foreach (var evt in TypeInfo.Events)
-                        {
-                            <div class="api-doc-definition">
-                                <div class="api-doc-definition-name">@evt.Name</div>
-                                <div class="api-doc-definition-meta">
-                                    <span class="api-doc-definition-type" title="@evt.Type">@ShortenTypeName(evt.Type)</span>
-                                </div>
-                                @if (!string.IsNullOrEmpty(evt.Summary))
-                                {
-                                    <div class="api-doc-definition-desc api-doc-rich-text">@RenderDocumentation(evt.Summary, evt.SummaryHtml)</div>
-                                }
-                            </div>
-                        }
-                    </div>
-                }
-            </section>
-        }
-
-        @if (TypeInfo.EnumValues.Count > 0)
-        {
-            <section class="api-doc-enum-values">
-                <h3>Values</h3>
-                <table class="api-doc-table">
+            <h2 id="type-parameters">Type parameters</h2>
+            <div class="docs-api-table-wrap">
+                <table class="docs-api-table">
                     <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Value</th>
-                            <th>Summary</th>
-                        </tr>
+                        <tr><th>Name</th><th>Constraints</th></tr>
                     </thead>
                     <tbody>
-                        @foreach (var enumVal in TypeInfo.EnumValues)
+                        @foreach (var parameter in _info.GenericParameters)
                         {
                             <tr>
-                                <td>@enumVal.Name</td>
-                                <td>@enumVal.Value</td>
-                                <td class="api-doc-rich-text">@RenderDocumentation(enumVal.Summary, enumVal.SummaryHtml)</td>
+                                <td><span class="docs-api-name">@parameter.Name</span></td>
+                                <td data-label="Constraints">
+                                    @if (parameter.Constraints.Count > 0)
+                                    {
+                                        <code class="docs-api-type">@string.Join(", ", parameter.Constraints.Select(ShortenTypeName))</code>
+                                    }
+                                    else
+                                    {
+                                        <span class="docs-api-default">none</span>
+                                    }
+                                </td>
                             </tr>
                         }
                     </tbody>
                 </table>
-            </section>
+            </div>
+        }
+
+        @if (HasMembers)
+        {
+            <h2 id="members">Members</h2>
+
+            <div class="docs-api-toolbar">
+                <label class="docs-api-filter">
+                    <DocIcon Name="@DocIconName.Search" />
+                    <input type="text"
+                           placeholder="Filter members…"
+                           aria-label="Filter members"
+                           value="@_filter"
+                           @oninput="@OnFilterChanged" />
+                </label>
+
+                @if (HasParameterProperties)
+                {
+                    <label class="docs-api-switch">
+                        <input type="checkbox" checked="@_parametersOnly" @onchange="@OnParametersOnlyChanged" />
+                        <span>Parameters only</span>
+                    </label>
+                }
+
+                <span class="docs-api-count">@MatchCount of @TotalCount</span>
+            </div>
+
+            @if (MatchCount == 0)
+            {
+                <p class="docs-api-empty">No members match &ldquo;@_filter&rdquo;.</p>
+            }
+
+            @RenderGroup("Properties", "properties", VisibleProperties.Count, @<div class="docs-api-table-wrap">
+                <table class="docs-api-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Type</th>
+                            @if (ShowsDefaults)
+                            {
+                                <th>Default</th>
+                            }
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var property in VisibleProperties)
+                        {
+                            <tr>
+                                <td>
+                                    <a class="docs-api-name" id="@MemberId(property.Name)" href="@MemberHref(property.Name)">
+                                        @property.Name
+                                        <DocIcon Name="@DocIconName.Link" />
+                                    </a>
+                                    @if (property.IsParameter || property.IsCascadingParameter)
+                                    {
+                                        <span class="docs-api-tags">
+                                            @if (property.IsParameter)
+                                            {
+                                                <span class="docs-badge docs-badge-required" title="Component parameter: set it as an attribute where the component is used">parameter</span>
+                                            }
+                                            @if (property.IsCascadingParameter)
+                                            {
+                                                <span class="docs-badge docs-badge-required" title="Cascading parameter: supplied by an ancestor CascadingValue">cascading</span>
+                                            }
+                                        </span>
+                                    }
+                                </td>
+                                <td data-label="Type"><code class="docs-api-type" title="@property.Type">@ShortenTypeName(property.Type)</code></td>
+                                @if (ShowsDefaults)
+                                {
+                                    <td data-label="Default">
+                                        @if (property.DefaultValue is not null)
+                                        {
+                                            <code class="docs-api-default">@property.DefaultValue</code>
+                                        }
+                                    </td>
+                                }
+                                <td class="docs-prose">@RenderDocumentation(property.Summary, property.SummaryHtml)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>)
+
+            @RenderGroup("Methods", "methods", VisibleMethods.Count, @<div>
+                @foreach (var method in VisibleMethods)
+                {
+                    <div class="docs-api-member">
+                        <pre class="docs-api-member-sig" title="@FullSignature(method)"><code>@Signature(method)</code></pre>
+                        @if (!string.IsNullOrEmpty(method.Summary))
+                        {
+                            <div class="docs-prose">@RenderDocumentation(method.Summary, method.SummaryHtml)</div>
+                        }
+                        @if (method.Parameters.Any(p => !string.IsNullOrEmpty(p.Summary)))
+                        {
+                            <dl class="docs-api-params">
+                                @foreach (var parameter in method.Parameters.Where(p => !string.IsNullOrEmpty(p.Summary)))
+                                {
+                                    <dt><code>@parameter.Name</code></dt>
+                                    <dd class="docs-prose">@RenderDocumentation(parameter.Summary, parameter.SummaryHtml)</dd>
+                                }
+                            </dl>
+                        }
+                    </div>
+                }
+            </div>)
+
+            @RenderGroup("Events", "events", VisibleEvents.Count, @<div>
+                @foreach (var apiEvent in VisibleEvents)
+                {
+                    <div class="docs-api-member">
+                        <pre class="docs-api-member-sig"><code>@ShortenTypeName(apiEvent.Type) @apiEvent.Name</code></pre>
+                        @if (!string.IsNullOrEmpty(apiEvent.Summary))
+                        {
+                            <div class="docs-prose">@RenderDocumentation(apiEvent.Summary, apiEvent.SummaryHtml)</div>
+                        }
+                    </div>
+                }
+            </div>)
+        }
+
+        @if (_info.EnumValues.Count > 0)
+        {
+            <h2 id="values">Values</h2>
+            <div class="docs-api-table-wrap">
+                <table class="docs-api-table">
+                    <thead>
+                        <tr><th>Name</th><th>Value</th><th>Description</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var enumValue in _info.EnumValues)
+                        {
+                            <tr>
+                                <td><span class="docs-api-name">@enumValue.Name</span></td>
+                                <td data-label="Value"><code class="docs-api-default">@enumValue.Value</code></td>
+                                <td class="docs-prose">@RenderDocumentation(enumValue.Summary, enumValue.SummaryHtml)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
         }
     </article>
 }
 
 @code {
+    /// <summary>
+    /// The type to document. Supply this or <see cref="Type"/>.
+    /// </summary>
     [Parameter]
     public ApiTypeInfo? TypeInfo { get; set; }
 
+    /// <summary>
+    /// A type to resolve from the embedded API manifest. Ignored when
+    /// <see cref="TypeInfo"/> is supplied.
+    /// </summary>
     [Parameter]
     public Type? Type { get; set; }
 
-    private readonly HashSet<string> _collapsedSections = [];
-    private static readonly Regex _fullyQualifiedTypeNameRegex = new(
-        @"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+",
-        RegexOptions.Compiled);
+    private static readonly Regex PascalCaseBoundary = new(@"(?<=[a-z0-9])(?=[A-Z])", RegexOptions.Compiled);
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        await JS.InvokeVoidAsync("Spillgebees.DocsSdk.highlightAll");
-    }
+    private static readonly Regex FullyQualifiedTypeName = new(
+        @"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+",
+        RegexOptions.Compiled
+    );
+
+    private readonly HashSet<string> _collapsedGroups = [];
+    private ApiTypeInfo? _info;
+    private Type? _resolvedType;
+    private ApiTypeInfo? _resolvedInfo;
+    private string _filter = "";
+    private bool _parametersOnly;
+
+    /// <summary>
+    /// Whether any visible property declares a default, so the column earns its
+    /// width instead of sitting empty.
+    /// </summary>
+    private bool ShowsDefaults => VisibleProperties.Any(property => property.DefaultValue is not null);
+
+    /// <summary>
+    /// Whether the base type is worth showing. Every enum derives from
+    /// <c>Enum</c> and every class from <c>object</c>; neither tells the reader
+    /// anything.
+    /// </summary>
+    private bool ShowsBaseType =>
+        _info is not null
+        && !string.IsNullOrEmpty(_info.BaseType)
+        && !string.Equals(_info.BaseType, "Enum", StringComparison.Ordinal)
+        && !string.Equals(_info.BaseType, "System.Enum", StringComparison.Ordinal)
+        && !string.Equals(_info.BaseType, "object", StringComparison.Ordinal)
+        && !string.Equals(_info.BaseType, "System.Object", StringComparison.Ordinal)
+        && !string.Equals(_info.BaseType, "ValueType", StringComparison.Ordinal);
+
+    private bool HasMembers =>
+        _info is not null
+        && (_info.Properties.Count > 0 || _info.Methods.Count > 0 || _info.Events.Count > 0);
+
+    private bool HasParameterProperties =>
+        _info?.Properties.Any(property => property.IsParameter || property.IsCascadingParameter) == true;
+
+    private IReadOnlyList<ApiPropertyInfo> VisibleProperties =>
+        _info is null
+            ? []
+            : _info
+                .Properties.Where(property =>
+                    Matches(property.Name)
+                    && (!_parametersOnly || property.IsParameter || property.IsCascadingParameter)
+                )
+                .ToList();
+
+    private IReadOnlyList<ApiMethodInfo> VisibleMethods =>
+        _info is null || _parametersOnly
+            ? []
+            : _info.Methods.Where(method => Matches(method.Name)).ToList();
+
+    private IReadOnlyList<ApiEventInfo> VisibleEvents =>
+        _info is null || _parametersOnly
+            ? []
+            : _info.Events.Where(apiEvent => Matches(apiEvent.Name)).ToList();
+
+    private int MatchCount => VisibleProperties.Count + VisibleMethods.Count + VisibleEvents.Count;
+
+    private int TotalCount =>
+        _info is null ? 0 : _info.Properties.Count + _info.Methods.Count + _info.Events.Count;
 
     protected override void OnParametersSet()
     {
-        if (TypeInfo is not null || Type is null) return;
+        if (TypeInfo is not null)
+        {
+            Show(TypeInfo);
+            return;
+        }
 
-        var assemblyName = Type.Assembly.GetName().Name;
-        if (assemblyName is null) return;
+        // Resolve only when Type changes; the manifest lookup is not free, and
+        // a fresh object for the same type would reset the visitor's filter.
+        if (Type != _resolvedType)
+        {
+            _resolvedType = Type;
+            _resolvedInfo = ResolveFromManifest(Type);
+        }
 
-        var manifest = EmbeddedResourceLocator.LoadApiManifest(assemblyName, Type.Assembly);
-        TypeInfo = manifest is null ? null : ResolveTypeInfo(manifest, Type);
+        Show(_resolvedInfo);
     }
 
-    private void ToggleSection(string sectionName)
+    /// <summary>
+    /// Switches to <paramref name="info"/>. Routed pages reuse this component
+    /// across types, so the filter and collapsed groups are reset when the
+    /// documented type changes rather than carried over to it.
+    /// </summary>
+    private void Show(ApiTypeInfo? info)
     {
-        if (!_collapsedSections.Add(sectionName))
+        if (string.Equals(info?.Id, _info?.Id, StringComparison.Ordinal))
         {
-            _collapsedSections.Remove(sectionName);
+            _info = info;
+            return;
+        }
+
+        _info = info;
+        _filter = "";
+        _parametersOnly = false;
+        _collapsedGroups.Clear();
+    }
+
+    private static ApiTypeInfo? ResolveFromManifest(Type? type)
+    {
+        var assemblyName = type?.Assembly.GetName().Name;
+        if (type is null || assemblyName is null)
+        {
+            return null;
+        }
+
+        var manifest = EmbeddedResourceLocator.LoadApiManifest(assemblyName, type.Assembly);
+        return manifest is null ? null : ResolveTypeInfo(manifest, type);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("Spillgebees.DocsSdk.highlightAll");
+        }
+        catch (Exception exception)
+            when (exception is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException)
+        {
+            // unhighlighted signatures are still readable
         }
     }
 
-    private bool IsSectionOpen(string sectionName) => !_collapsedSections.Contains(sectionName);
+    private RenderFragment RenderGroup(string title, string key, int count, RenderFragment body) =>
+        @<text>
+            @if (count > 0)
+            {
+                <section class="docs-api-group" data-docs-open="@(IsOpen(key) ? "true" : "false")">
+                    <h3 class="docs-api-group-heading">
+                        <button type="button"
+                                class="docs-api-group-head"
+                                aria-expanded="@(IsOpen(key) ? "true" : "false")"
+                                @onclick="@(() => ToggleGroup(key))">
+                            <DocIcon Name="@DocIconName.Chevron" />
+                            <span class="docs-api-group-title">@title</span>
+                            <span class="docs-api-group-count">@count</span>
+                        </button>
+                    </h3>
+                    <div class="docs-api-group-body">@body</div>
+                </section>
+            }
+        </text>;
+
+    private void OnFilterChanged(ChangeEventArgs args) => _filter = args.Value?.ToString() ?? "";
+
+    private void OnParametersOnlyChanged(ChangeEventArgs args) =>
+        _parametersOnly = args.Value is bool value && value;
+
+    private bool Matches(string name) =>
+        string.IsNullOrWhiteSpace(_filter)
+        || name.Contains(_filter.Trim(), StringComparison.OrdinalIgnoreCase);
+
+    private void ToggleGroup(string key)
+    {
+        if (!_collapsedGroups.Add(key))
+        {
+            _collapsedGroups.Remove(key);
+        }
+    }
+
+    private bool IsOpen(string key) => !_collapsedGroups.Contains(key);
+
+    private static string MemberId(string name) => $"member-{name}";
+
+    // a bare "#id" resolves against <base href>, which is the site root, not this page
+    private string MemberHref(string name) => $"{NavigationManager.Uri.Split('#')[0]}#{MemberId(name)}";
+
+    private static string Signature(ApiMethodInfo method)
+    {
+        var generics = method.GenericParameters.Count == 0
+            ? ""
+            : $"<{string.Join(", ", method.GenericParameters.Select(p => p.Name))}>";
+
+        var parameters = string.Join(
+            ", ",
+            method.Parameters.Select(p => FormatParameter(p, shortenTypes: true))
+        );
+
+        var constraints = method.GenericParameters.Count == 0
+            ? ""
+            : " "
+                + string.Join(
+                    " ",
+                    method
+                        .GenericParameters.Where(p => p.Constraints.Count > 0)
+                        .Select(p =>
+                            $"where {p.Name} : {string.Join(", ", p.Constraints.Select(ShortenTypeName))}"
+                        )
+                );
+
+        return $"{ShortenTypeName(method.ReturnType)} {method.Name}{generics}({parameters}){constraints}";
+    }
+
+    private static string FullSignature(ApiMethodInfo method)
+    {
+        var generics = method.GenericParameters.Count == 0
+            ? ""
+            : $"<{string.Join(", ", method.GenericParameters.Select(p => p.Name))}>";
+
+        var parameters = string.Join(
+            ", ",
+            method.Parameters.Select(p => FormatParameter(p, shortenTypes: false))
+        );
+
+        return $"{method.ReturnType} {method.Name}{generics}({parameters})";
+    }
 
     private static string FormatParameter(ApiParameterInfo parameter, bool shortenTypes)
     {
         var parameterType = shortenTypes ? ShortenTypeName(parameter.Type) : parameter.Type;
         var signature = $"{parameterType} {parameter.Name}";
+
         if (parameter.DefaultValue is not null)
         {
             signature += " = " + parameter.DefaultValue;
@@ -256,6 +452,10 @@
         return signature;
     }
 
+    // lets a long title wrap between words on a narrow screen instead of mid-word
+    private static string BreakableTypeName(string name) =>
+        string.Join("<wbr>", PascalCaseBoundary.Split(name).Select(WebUtility.HtmlEncode));
+
     private static string ShortenTypeName(string? typeName)
     {
         if (string.IsNullOrWhiteSpace(typeName))
@@ -263,12 +463,15 @@
             return string.Empty;
         }
 
-        return _fullyQualifiedTypeNameRegex.Replace(typeName, match =>
-        {
-            var value = match.Value;
-            var lastDotIndex = value.LastIndexOf('.');
-            return lastDotIndex < 0 ? value : value[(lastDotIndex + 1)..];
-        });
+        return FullyQualifiedTypeName.Replace(
+            typeName,
+            match =>
+            {
+                var value = match.Value;
+                var lastDotIndex = value.LastIndexOf('.');
+                return lastDotIndex < 0 ? value : value[(lastDotIndex + 1)..];
+            }
+        );
     }
 
     private static MarkupString RenderDocumentation(string? text, string? html) =>

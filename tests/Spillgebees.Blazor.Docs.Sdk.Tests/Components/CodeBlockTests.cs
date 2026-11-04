@@ -10,8 +10,10 @@ public class CodeBlockTests
     {
         // arrange
         using var ctx = new BunitContext();
-        ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.copyToClipboard", _ => true);
+        ctx.JSInterop.Setup<bool>("Spillgebees.DocsSdk.copyToClipboard", _ => true).SetResult(true);
         ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.highlightElement", _ => true);
+        ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.fitCodeTabs", _ => true).SetVoidResult();
+        ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.bindSelect", _ => true);
         var files = new Dictionary<string, string> { ["Program.cs"] = "var x = 1;" };
 
         // act
@@ -27,15 +29,17 @@ public class CodeBlockTests
     {
         // arrange
         using var ctx = new BunitContext();
-        ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.copyToClipboard", _ => true);
+        ctx.JSInterop.Setup<bool>("Spillgebees.DocsSdk.copyToClipboard", _ => true).SetResult(true);
         ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.highlightElement", _ => true);
+        ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.fitCodeTabs", _ => true).SetVoidResult();
+        ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.bindSelect", _ => true);
         var files = new Dictionary<string, string> { ["Program.cs"] = "hello", ["Startup.cs"] = "world" };
 
         // act
         var cut = ctx.Render<CodeBlock>(parameters => parameters.Add(p => p.Files, files));
 
         // assert
-        var tabs = cut.FindAll(".code-block-tab");
+        var tabs = cut.FindAll(".docs-code-tab");
         tabs.Should().HaveCount(2);
         tabs[0].TextContent.Should().Be("Program.cs");
         tabs[1].TextContent.Should().Be("Startup.cs");
@@ -46,34 +50,18 @@ public class CodeBlockTests
     {
         // arrange
         using var ctx = new BunitContext();
-        ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.copyToClipboard", _ => true);
+        ctx.JSInterop.Setup<bool>("Spillgebees.DocsSdk.copyToClipboard", _ => true).SetResult(true);
         ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.highlightElement", _ => true);
+        ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.fitCodeTabs", _ => true).SetVoidResult();
+        ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.bindSelect", _ => true);
         var files = new Dictionary<string, string> { ["Program.cs"] = "hello" };
 
         // act
         var cut = ctx.Render<CodeBlock>(parameters => parameters.Add(p => p.Files, files));
 
         // assert
-        var copyButton = cut.Find(".code-block-copy");
+        var copyButton = cut.Find(".docs-code-copy");
         copyButton.Should().NotBeNull();
-    }
-
-    [Test]
-    public void Should_render_tab_for_single_file()
-    {
-        // arrange
-        using var ctx = new BunitContext();
-        ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.copyToClipboard", _ => true);
-        ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.highlightElement", _ => true);
-        var files = new Dictionary<string, string> { ["Program.cs"] = "hello" };
-
-        // act
-        var cut = ctx.Render<CodeBlock>(parameters => parameters.Add(p => p.Files, files));
-
-        // assert
-        var tabs = cut.FindAll(".code-block-tab");
-        tabs.Should().HaveCount(1);
-        tabs[0].TextContent.Should().Be("Program.cs");
     }
 
     [Test]
@@ -81,17 +69,19 @@ public class CodeBlockTests
     {
         // arrange
         using var ctx = new BunitContext();
-        ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.copyToClipboard", _ => true);
+        ctx.JSInterop.Setup<bool>("Spillgebees.DocsSdk.copyToClipboard", _ => true).SetResult(true);
         ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.highlightElement", _ => true);
+        ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.fitCodeTabs", _ => true).SetVoidResult();
+        ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.bindSelect", _ => true);
         var files = new Dictionary<string, string> { ["Program.cs"] = "hello", ["Startup.cs"] = "world" };
 
         // act
         var cut = ctx.Render<CodeBlock>(parameters => parameters.Add(p => p.Files, files));
 
         // assert
-        var bar = cut.Find(".code-block-bar");
+        var bar = cut.Find(".docs-code-bar");
         bar.Should().NotBeNull();
-        var copy = cut.Find(".code-block-copy");
+        var copy = cut.Find(".docs-code-copy");
         copy.Should().NotBeNull();
     }
 
@@ -100,8 +90,10 @@ public class CodeBlockTests
     {
         // arrange
         using var ctx = new BunitContext();
-        ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.copyToClipboard", _ => true);
+        ctx.JSInterop.Setup<bool>("Spillgebees.DocsSdk.copyToClipboard", _ => true).SetResult(true);
         ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.highlightElement", _ => true);
+        ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.fitCodeTabs", _ => true).SetVoidResult();
+        ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.bindSelect", _ => true);
         var files = new Dictionary<string, string> { ["Counter.razor.cs"] = "public partial class Counter {}" };
 
         // act
@@ -119,8 +111,10 @@ public class CodeBlockTests
     {
         // arrange
         using var ctx = new BunitContext();
-        ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.copyToClipboard", _ => true);
+        ctx.JSInterop.Setup<bool>("Spillgebees.DocsSdk.copyToClipboard", _ => true).SetResult(true);
         ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.highlightElement", _ => true);
+        ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.fitCodeTabs", _ => true).SetVoidResult();
+        ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.bindSelect", _ => true);
         var files = new Dictionary<string, string> { ["Counter.razor"] = "<h1>Hello</h1>" };
 
         // act
@@ -138,8 +132,10 @@ public class CodeBlockTests
     {
         // arrange
         using var ctx = new BunitContext();
-        ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.copyToClipboard", _ => true);
+        ctx.JSInterop.Setup<bool>("Spillgebees.DocsSdk.copyToClipboard", _ => true).SetResult(true);
         ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.highlightElement", _ => true);
+        ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.fitCodeTabs", _ => true).SetVoidResult();
+        ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.bindSelect", _ => true);
         var files = new Dictionary<string, string>
         {
             ["Counter.razor"] = "<h1>Hello</h1>",
@@ -156,7 +152,7 @@ public class CodeBlockTests
         code.ClassList.Should().Contain("language-cshtml-razor");
 
         // act - click the code-behind tab
-        var tabs = cut.FindAll(".code-block-tab");
+        var tabs = cut.FindAll(".docs-code-tab");
         tabs[1].Click();
 
         // assert - should now be csharp
@@ -169,8 +165,10 @@ public class CodeBlockTests
     {
         // arrange
         using var ctx = new BunitContext();
-        ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.copyToClipboard", _ => true);
+        ctx.JSInterop.Setup<bool>("Spillgebees.DocsSdk.copyToClipboard", _ => true).SetResult(true);
         ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.highlightElement", _ => true);
+        ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.fitCodeTabs", _ => true).SetVoidResult();
+        ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.bindSelect", _ => true);
         var files = new Dictionary<string, string> { ["Program.cs"] = "var x = 1;" };
 
         // act
@@ -186,8 +184,10 @@ public class CodeBlockTests
     {
         // arrange
         using var ctx = new BunitContext();
-        ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.copyToClipboard", _ => true);
+        ctx.JSInterop.Setup<bool>("Spillgebees.DocsSdk.copyToClipboard", _ => true).SetResult(true);
         ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.highlightElement", _ => true);
+        ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.fitCodeTabs", _ => true).SetVoidResult();
+        ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.bindSelect", _ => true);
         var files = new Dictionary<string, string> { ["script.py"] = "print('hello')" };
 
         // act
@@ -198,5 +198,108 @@ public class CodeBlockTests
         // assert
         var code = cut.Find("pre code");
         code.ClassList.Should().Contain("language-python");
+    }
+
+    [Test]
+    public void Should_not_rehighlight_when_copying()
+    {
+        // arrange
+        using var ctx = new BunitContext();
+        ctx.JSInterop.Setup<bool>("Spillgebees.DocsSdk.copyToClipboard", _ => true).SetResult(true);
+        ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.highlightElement", _ => true);
+        ctx.JSInterop.SetupVoid("Spillgebees.DocsSdk.fitCodeTabs", _ => true).SetVoidResult();
+        var files = new Dictionary<string, string> { ["Program.cs"] = "var x = 1;" };
+        var cut = ctx.Render<CodeBlock>(parameters => parameters.Add(p => p.Files, files));
+        var highlightsBefore = ctx.JSInterop.Invocations["Spillgebees.DocsSdk.highlightElement"].Count;
+
+        // act: highlighting rebuilds the code DOM, which would clear a selection
+        cut.Find(".docs-code-copy").Click();
+
+        // assert
+        ctx.JSInterop.Invocations["Spillgebees.DocsSdk.highlightElement"].Count.Should().Be(highlightsBefore);
+    }
+
+    [Test]
+    public void Should_rehighlight_when_only_the_language_changes()
+    {
+        // arrange
+        using var ctx = new BunitContext();
+        ctx.JSInterop.Mode = JSRuntimeMode.Loose;
+        var files = new Dictionary<string, string> { ["snippet"] = "{ \"value\": true }" };
+        var cut = ctx.Render<CodeBlock>(parameters =>
+            parameters.Add(p => p.Files, files).Add(p => p.Language, "csharp")
+        );
+        var highlightsBefore = ctx.JSInterop.Invocations["Spillgebees.DocsSdk.highlightElement"].Count;
+
+        // act
+        cut.Render(parameters => parameters.Add(p => p.Files, files).Add(p => p.Language, "json"));
+
+        // assert
+        cut.Find("pre code").ClassList.Should().Contain("language-json");
+        ctx.JSInterop.Invocations["Spillgebees.DocsSdk.highlightElement"].Count.Should().Be(highlightsBefore + 1);
+    }
+
+    [Test]
+    public void Should_refit_the_file_tabs_when_files_are_added()
+    {
+        // arrange
+        using var ctx = new BunitContext();
+        ctx.JSInterop.Mode = JSRuntimeMode.Loose;
+        var cut = ctx.Render<CodeBlock>(parameters =>
+            parameters.Add(p => p.Files, new Dictionary<string, string> { ["Short.cs"] = "a", ["B.cs"] = "b" })
+        );
+        var fitsBefore = ctx.JSInterop.Invocations["Spillgebees.DocsSdk.fitCodeTabs"].Count;
+
+        // act: the active file is unchanged, so nothing is re-highlighted
+        cut.Render(parameters =>
+            parameters.Add(
+                p => p.Files,
+                new Dictionary<string, string>
+                {
+                    ["Short.cs"] = "a",
+                    ["B.cs"] = "b",
+                    ["AnotherReallyLongSourceFileName.cs"] = "c",
+                }
+            )
+        );
+
+        // assert
+        ctx.JSInterop.Invocations["Spillgebees.DocsSdk.fitCodeTabs"].Count.Should().Be(fitsBefore + 1);
+    }
+
+    [Test]
+    public void Should_announce_the_copy_result()
+    {
+        // arrange
+        using var ctx = new BunitContext();
+        ctx.JSInterop.Mode = JSRuntimeMode.Loose;
+        ctx.JSInterop.Setup<bool>("Spillgebees.DocsSdk.copyToClipboard", _ => true).SetResult(true);
+        var cut = ctx.Render<CodeBlock>(parameters =>
+            parameters.Add(p => p.Files, new Dictionary<string, string> { ["Program.cs"] = "x" })
+        );
+        cut.Find("[role='status']").TextContent.Should().BeEmpty();
+
+        // act
+        cut.Find(".docs-code-copy").Click();
+
+        // assert
+        cut.Find("[role='status']").TextContent.Should().Be("Copied");
+    }
+
+    [Test]
+    public void Should_label_a_single_file_without_a_selectable_tab()
+    {
+        // arrange
+        using var ctx = new BunitContext();
+        ctx.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        // act
+        var cut = ctx.Render<CodeBlock>(parameters =>
+            parameters.Add(p => p.Files, new Dictionary<string, string> { ["Program.cs"] = "x" })
+        );
+
+        // assert
+        cut.Find(".docs-code-file").TextContent.Should().Be("Program.cs");
+        cut.FindAll(".docs-code-tab").Should().BeEmpty();
     }
 }

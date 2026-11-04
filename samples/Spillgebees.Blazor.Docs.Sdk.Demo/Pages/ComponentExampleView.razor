@@ -1,28 +1,25 @@
 @page "/components/example-view"
 
 <Breadcrumb Section="components" PageName="ExampleView"
-            ApiReferenceUrl="@ApiReferenceUrl"
+            ApiReferenceUrl='@DocsApiLinks.For("ExampleView")'
             SourceUrl="https://github.com/Spillgebees/Blazor.Docs.Sdk/blob/main/src/Spillgebees.Blazor.Docs.Sdk/Components/ExampleView.razor" />
-<OnThisPage />
 
 <h1>ExampleView</h1>
 <p>Renders a live Blazor component alongside its syntax-highlighted source code, extracted automatically at build time.</p>
 
-<h2 id="basic_usage">// basic_usage</h2>
+<h2 id="basic_usage">Basic usage</h2>
 <p>Wrap your component in an ExampleView and render it as child content.</p>
 
 <ExampleView TComponent="CounterExample">
     <CounterExample />
 </ExampleView>
 
-<h2 id="additional_sources">// additional_sources</h2>
+<h2 id="additional_sources">Additional sources</h2>
 <p>When an example uses helper classes, pass them via <code>AdditionalSources</code>.</p>
 
 <CodeBlock Files="@_multiFileSnippet" Language="razor" />
 
 @code {
-    private static string ApiReferenceUrl =>
-        ApiReferenceNav.Generate<DocSite>().First(page => page.Title.StartsWith("ExampleView", StringComparison.Ordinal)).Href;
 
     private static readonly Dictionary<string, string> _multiFileSnippet = new()
     {

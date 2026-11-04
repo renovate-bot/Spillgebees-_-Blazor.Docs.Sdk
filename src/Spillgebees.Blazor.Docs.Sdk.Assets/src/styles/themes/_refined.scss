@@ -1,0 +1,127 @@
+// ── Theme: refined (default) ─────────────────────────────────────────────── //
+//
+// Warm editorial dark, with a cream light scheme. Schibsted Grotesk for
+// display, Hanken Grotesk for body, JetBrains Mono for code.
+//
+// Applied to bare `:root` as well as its own selector so that it acts as the
+// fallback for partial custom themes.
+
+@mixin dark {
+  color-scheme: dark;
+
+  --docs-bg: #131210;
+  --docs-surface-1: #1a1814;
+  --docs-surface-2: #201d18;
+  --docs-surface-3: #29251e;
+  --docs-well: #0f0e0b;
+
+  --docs-line: #2c281f;
+  --docs-line-soft: #221e18;
+  // control boundaries need 3:1 against the background, unlike decorative rules
+  --docs-line-strong: #565040;
+
+  --docs-text: #ece6da;
+  --docs-text-2: #bbb3a3;
+  --docs-text-3: #a29a89;
+  // lifted from the prototype's #817967, which sat at 4.34:1 on --docs-bg
+  --docs-text-4: #948c79;
+  --docs-label: #aaa18e;
+
+  --docs-accent: #d8a44a;
+  --docs-accent-strong: #ecc06f;
+  --docs-accent-muted: #a87d2f;
+  --docs-accent-wash: rgb(216 164 74 / 11%);
+  --docs-accent-line: rgb(216 164 74 / 26%);
+  --docs-accent-contrast: #131210;
+
+  --docs-success: #7bbf83;
+  --docs-warning: #e0a458;
+  --docs-danger: #e08a72;
+
+  --docs-shadow-sm: 0 1px 2px rgb(0 0 0 / 35%);
+  --docs-shadow-md: 0 10px 28px -12px rgb(0 0 0 / 55%);
+  --docs-shadow-lg: 0 28px 60px -22px rgb(0 0 0 / 70%);
+  --docs-scrim: rgb(10 9 7 / 55%);
+  --docs-selection: rgb(216 164 74 / 34%);
+
+  --docs-syn-tag: #97c98a;
+  --docs-syn-attr: #ecc06f;
+  --docs-syn-string: #d9b986;
+  --docs-syn-keyword: #e08a72;
+  --docs-syn-comment: #948c79;
+  --docs-syn-number: #b8c8e8;
+  --docs-syn-title: #cbb2e8;
+  --docs-syn-meta: #d9b986;
+}
+
+@mixin light {
+  color-scheme: light;
+
+  --docs-bg: #f6f3ea;
+  --docs-surface-1: #fcfaf3;
+  --docs-surface-2: #ffffff;
+  --docs-surface-3: #efe9da;
+  --docs-well: #ece5d4;
+
+  --docs-line: #ded5bf;
+  --docs-line-soft: #e8e0cd;
+  --docs-line-strong: #93876c;
+
+  --docs-text: #221e16;
+  --docs-text-2: #4b4437;
+  --docs-text-3: #5d5646;
+  --docs-text-4: #635b4b;
+  --docs-label: #5d5646;
+
+  // The accent ramp inverts here: `-strong` means *more contrast against the
+  // background*, so on a light scheme it is the darkest step. The prototype
+  // kept `-bright` lighter than the base in both schemes, which is what put
+  // links, active nav, inline code and required badges at 2.7:1 in light mode.
+  --docs-accent: #8a641b;
+  --docs-accent-strong: #63460f;
+  --docs-accent-muted: #a8823a;
+  --docs-accent-wash: rgb(138 100 27 / 10%);
+  --docs-accent-line: rgb(138 100 27 / 32%);
+  --docs-accent-contrast: #fffdf8;
+
+  --docs-success: #2c6539;
+  --docs-warning: #7d4c0d;
+  --docs-danger: #98351f;
+
+  --docs-shadow-sm: 0 1px 2px rgb(80 60 20 / 6%);
+  --docs-shadow-md: 0 10px 28px -14px rgb(90 70 30 / 20%);
+  --docs-shadow-lg: 0 28px 56px -22px rgb(90 70 30 / 26%);
+  --docs-scrim: rgb(34 30 22 / 40%);
+  --docs-selection: rgb(138 100 27 / 26%);
+
+  --docs-syn-tag: #35601d;
+  --docs-syn-attr: #7d5a15;
+  --docs-syn-string: #6d5012;
+  --docs-syn-keyword: #9c3325;
+  --docs-syn-comment: #635b4b;
+  --docs-syn-number: #23407a;
+  --docs-syn-title: #572e94;
+  --docs-syn-meta: #6d5012;
+}
+
+// default (no theme attribute yet, e.g. before the initializer runs)
+:root {
+  @include dark;
+}
+
+// Before the JS module resolves the scheme, follow the OS, so a visitor on a
+// light system does not see a dark frame first.
+@media (prefers-color-scheme: light) {
+  :root:not([data-docs-scheme]) {
+    @include light;
+  }
+}
+
+:root[data-docs-scheme="light"],
+[data-docs-theme="refined"][data-docs-scheme="light"] {
+  @include light;
+}
+
+[data-docs-theme="refined"][data-docs-scheme="dark"] {
+  @include dark;
+}

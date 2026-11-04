@@ -1,0 +1,337 @@
+// ── Theme: glory-to-mankind ──────────────────────────────────────────────── //
+//
+// Ink on parchment, after the menu screens of a certain 2017 android action
+// game. The base tones come from SunkenInTime's NieR: Automata theme for
+// T3 Code (https://github.com/SunkenInTime/t3-themes).
+//
+// Monochrome at heart: the accent *is* the ink, so colour only ever means a
+// signal or a syntax role. Surfaces, ink, signals and syntax match the source
+// palette; text-2, text-4, the comment colour, line-strong and light surface-1
+// are lifted from it so text clears 4.5:1 and control edges 3:1. Selection is a solid ink bar with paper text, dots
+// are squares, sections end in hairline rules, frames are corner brackets.
+
+[data-docs-theme="glory-to-mankind"] {
+  --docs-font-display: "Inter Variable", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --docs-font-sans: "Inter Variable", "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --docs-radius-xs: 0;
+  --docs-radius-sm: 0;
+  --docs-radius-md: 0;
+  --docs-radius-lg: 0;
+  --docs-radius-pill: 0;
+
+  --docs-tracking-tight: 0;
+  --docs-tracking-wide: 0.14em;
+}
+
+[data-docs-theme="glory-to-mankind"][data-docs-scheme="dark"] {
+  color-scheme: dark;
+
+  --docs-bg: #2f2d26;
+  --docs-surface-1: #282620;
+  --docs-surface-2: #3b3930;
+  --docs-surface-3: #45433a;
+  --docs-well: #25241e;
+
+  --docs-line: #4f4d45;
+  --docs-line-soft: #3d3b33;
+  --docs-line-strong: #858272;
+
+  --docs-text: #d1cdb7;
+  --docs-text-2: #bdb9a4;
+  --docs-text-3: #a8a593;
+  --docs-text-4: #9a9784;
+  --docs-label: #a8a593;
+
+  --docs-accent: #d1cdb7;
+  --docs-accent-strong: #ebe7d1;
+  --docs-accent-muted: #807d6f;
+  --docs-accent-wash: rgb(209 205 183 / 9%);
+  --docs-accent-line: rgb(209 205 183 / 30%);
+  --docs-accent-contrast: #2f2d26;
+
+  --docs-success: #a3ad78;
+  --docs-warning: #c2b169;
+  --docs-danger: #d28474;
+
+  // hard offset shadows, like the menu panels
+  --docs-shadow-sm: none;
+  --docs-shadow-md: 4px 4px 0 rgb(0 0 0 / 22%);
+  --docs-shadow-lg: 8px 8px 0 rgb(0 0 0 / 30%), 0 24px 60px -20px rgb(0 0 0 / 60%);
+  --docs-scrim: rgb(31 30 25 / 62%);
+
+  --docs-syn-tag: #8fb0a1;
+  --docs-syn-attr: #ddc394;
+  --docs-syn-string: #a3ad78;
+  --docs-syn-keyword: #d39a78;
+  --docs-syn-comment: #959281;
+  --docs-syn-number: #c2a0a0;
+  --docs-syn-title: #ddc394;
+  --docs-syn-meta: #c2b169;
+}
+
+[data-docs-theme="glory-to-mankind"][data-docs-scheme="light"] {
+  color-scheme: light;
+
+  --docs-bg: #d1cdb7;
+  --docs-surface-1: #c9c5ae;
+  --docs-surface-2: #dad6c1;
+  --docs-surface-3: #bcb8a0;
+  --docs-well: #c4c0a8;
+
+  --docs-line: #a29e89;
+  --docs-line-soft: #b4b09a;
+  --docs-line-strong: #66634f;
+
+  --docs-text: #2a2822;
+  --docs-text-2: #3a382f;
+  --docs-text-3: #48463b;
+  --docs-text-4: #504e42;
+  --docs-label: #48463b;
+
+  --docs-accent: #2a2822;
+  --docs-accent-strong: #16140f;
+  --docs-accent-muted: #656255;
+  --docs-accent-wash: rgb(42 40 34 / 8%);
+  --docs-accent-line: rgb(42 40 34 / 30%);
+  --docs-accent-contrast: #d1cdb7;
+
+  --docs-success: #464f1c;
+  --docs-warning: #584917;
+  --docs-danger: #7e3426;
+
+  --docs-shadow-sm: none;
+  --docs-shadow-md: 4px 4px 0 rgb(42 40 34 / 14%);
+  --docs-shadow-lg: 8px 8px 0 rgb(42 40 34 / 18%), 0 24px 56px -20px rgb(42 40 34 / 35%);
+  --docs-scrim: rgb(42 40 34 / 45%);
+
+  --docs-syn-tag: #275345;
+  --docs-syn-attr: #5e4714;
+  --docs-syn-string: #464f1c;
+  --docs-syn-keyword: #773921;
+  --docs-syn-comment: #4f4d43;
+  --docs-syn-number: #694040;
+  --docs-syn-title: #5e4714;
+  --docs-syn-meta: #584917;
+}
+
+// ── Treatments ──────────────────────────────────────────────────────────── //
+
+// L-shaped marks on the four corners instead of a full box, for a pseudo
+// element laid over the frame. The marks are a real 1px border masked down to
+// the corners: a border snaps to whole device pixels, while gradient-drawn
+// lines land on fractional positions at 1.25x or 1.5x and come out 1px on one
+// side and 2px on the other.
+@mixin corner-brackets($color, $size: 10px) {
+  $corner: linear-gradient(#000, #000);
+
+  border: 1px solid $color;
+  mask:
+    $corner top left / #{$size} #{$size} no-repeat,
+    $corner top right / #{$size} #{$size} no-repeat,
+    $corner bottom left / #{$size} #{$size} no-repeat,
+    $corner bottom right / #{$size} #{$size} no-repeat;
+  pointer-events: none;
+}
+
+@mixin inverted {
+  background: var(--docs-text);
+  color: var(--docs-bg);
+}
+
+@mixin square($size: 6px) {
+  width: $size;
+  height: $size;
+  border-radius: 0;
+}
+
+[data-docs-theme="glory-to-mankind"] {
+  // Faint horizontal scan lines across the whole page. One 4px tile, tiled by
+  // the browser: a repeating gradient over the page height drifts against the
+  // pixel grid, so lines that land on one device row near the top straddle
+  // two further down and the page shows lighter and darker bands. 4px is a
+  // whole number of device pixels at 1x, 1.25x, 1.5x and 2x.
+  background-image: linear-gradient(
+    to bottom,
+    transparent 3px,
+    color-mix(in srgb, var(--docs-text) 3%, transparent) 3px
+  );
+  background-size: 100% 4px;
+
+  // On dark, ink lines would brighten the page behind the text. Shadow lines
+  // keep the rhythm without lifting the background.
+  &[data-docs-scheme="dark"] {
+    background-image: linear-gradient(to bottom, transparent 3px, rgb(0 0 0 / 16%) 3px);
+  }
+
+  ::selection {
+    @include inverted;
+  }
+
+  // ── Type ──
+
+  .docs-title,
+  .docs-content-inner h1 {
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+
+  .docs-content-inner h2,
+  .docs-prose h2 {
+    position: relative;
+    padding-bottom: var(--docs-space-3);
+    border-bottom: 1px solid var(--docs-line);
+    font-weight: 500;
+    letter-spacing: 0.02em;
+
+    // a hairline that ends in a square
+    &::after {
+      content: "";
+      position: absolute;
+      right: 0;
+      bottom: -3px;
+      @include square(5px);
+      background: var(--docs-text-3);
+    }
+  }
+
+  .docs-content-inner ul,
+  .docs-prose ul {
+    list-style-type: square;
+  }
+
+  .docs-heading-num {
+    color: var(--docs-text-4);
+  }
+
+  .docs-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: var(--docs-space-2);
+    font-family: var(--docs-font-sans);
+    text-transform: uppercase;
+    letter-spacing: var(--docs-tracking-wide);
+    color: var(--docs-text-3);
+
+    &::before {
+      content: "";
+      flex: none;
+      @include square;
+      background: currentcolor;
+    }
+  }
+
+  .docs-nav-group-label,
+  .docs-toc-label {
+    padding-bottom: var(--docs-space-2);
+    border-bottom: 1px solid var(--docs-line);
+    font-weight: 600;
+    letter-spacing: var(--docs-tracking-wide);
+  }
+
+  // ── Selection: the inverted ink bar ──
+
+  .docs-nav-group a,
+  .docs-topnav a {
+    &:hover {
+      background: var(--docs-accent-wash);
+    }
+
+    &.docs-on {
+      @include inverted;
+      font-weight: 500;
+    }
+  }
+
+  .docs-nav-group .docs-dot {
+    @include square(5px);
+  }
+
+  .docs-nav-group a.docs-on .docs-dot {
+    background: var(--docs-bg);
+    box-shadow: none;
+  }
+
+  .docs-toc a.docs-on {
+    color: var(--docs-text);
+    border-left-color: var(--docs-text);
+    font-weight: 500;
+  }
+
+  .docs-modal-row {
+    &.docs-on,
+    &:hover {
+      @include inverted;
+
+      svg,
+      .docs-modal-row-path {
+        color: inherit;
+      }
+
+      mark {
+        color: inherit;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+      }
+    }
+  }
+
+  .docs-select-menu button {
+    &:hover,
+    &.docs-on {
+      @include inverted;
+    }
+  }
+
+  .docs-code-tab.docs-on,
+  .docs-example-seg button.docs-on,
+  .docs-example-viewports button.docs-on {
+    @include inverted;
+    box-shadow: none;
+  }
+
+  // ── Frames ──
+
+  // brackets carry the frame; a full border under them would make it a box
+  .docs-callout,
+  .docs-callout.docs-callout-warning,
+  .docs-callout.docs-callout-danger {
+    border-color: transparent;
+  }
+
+  .docs-callout {
+    position: relative;
+
+    &::after {
+      content: "";
+      position: absolute;
+      inset: -1px;
+      @include corner-brackets(var(--docs-text-3));
+    }
+
+    &.docs-callout-warning::after {
+      border-color: var(--docs-warning);
+    }
+
+    &.docs-callout-danger::after {
+      border-color: var(--docs-danger);
+    }
+  }
+
+  .docs-example {
+    position: relative;
+    border-color: var(--docs-line-soft);
+
+    &::after {
+      content: "";
+      position: absolute;
+      inset: -4px;
+      @include corner-brackets(var(--docs-text-3));
+    }
+  }
+
+  .docs-badge {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+}

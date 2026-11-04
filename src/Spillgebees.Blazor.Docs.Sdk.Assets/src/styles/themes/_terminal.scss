@@ -1,0 +1,191 @@
+// ── Theme: terminal ──────────────────────────────────────────────────────── //
+//
+// The original gold-on-black docs look, kept as a built-in: neutral near-black
+// surfaces, a single gold hue expanded into a proper ramp, square corners, no
+// elevation, monospace-forward chrome and a numbered code gutter.
+//
+// A good demonstration of how far a theme can travel using only the token
+// contract plus a short list of treatments.
+
+[data-docs-theme="terminal"] {
+  --docs-font-display: var(--docs-font-mono);
+  --docs-font-sans: "Inter Variable", "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --docs-radius-xs: 0;
+  --docs-radius-sm: 0;
+  --docs-radius-md: 0;
+  --docs-radius-lg: 0;
+  --docs-radius-pill: 0;
+
+  --docs-shadow-sm: none;
+  --docs-shadow-md: none;
+
+  --docs-text-4xl: 2rem;
+  --docs-text-3xl: 1.35rem;
+  --docs-topbar-height: 52px;
+
+}
+
+[data-docs-theme="terminal"][data-docs-scheme="dark"] {
+  color-scheme: dark;
+
+  --docs-bg: #080808;
+  --docs-surface-1: #0d0d0d;
+  --docs-surface-2: #111111;
+  --docs-surface-3: #1a1a1a;
+  --docs-well: #050505;
+
+  --docs-line: #222222;
+  --docs-line-soft: #1a1a1a;
+  --docs-line-strong: #3d3d3d;
+
+  --docs-text: #e8e0d8;
+  --docs-text-2: #aaa49c;
+  --docs-text-3: #948d84;
+  --docs-text-4: #8a837b;
+  --docs-label: #948d84;
+
+  --docs-accent: #c8a050;
+  --docs-accent-strong: #e8c47a;
+  --docs-accent-muted: #806a3c;
+  --docs-accent-wash: rgb(200 160 80 / 10%);
+  --docs-accent-line: rgb(200 160 80 / 28%);
+  --docs-accent-contrast: #080808;
+
+  --docs-success: #7bbf83;
+  --docs-warning: #d99a3c;
+  --docs-danger: #e08a72;
+
+  --docs-shadow-lg: 0 24px 64px -16px #000000;
+  --docs-scrim: rgb(0 0 0 / 60%);
+  --docs-selection: rgb(200 160 80 / 34%);
+
+  --docs-syn-tag: #7ee787;
+  --docs-syn-attr: #79c0ff;
+  --docs-syn-string: #a5d6ff;
+  --docs-syn-keyword: #ff7b72;
+  --docs-syn-comment: #8a837b;
+  --docs-syn-number: #79c0ff;
+  --docs-syn-title: #d2a8ff;
+  --docs-syn-meta: #ffa657;
+}
+
+[data-docs-theme="terminal"][data-docs-scheme="light"] {
+  color-scheme: light;
+
+  --docs-bg: #faf8f5;
+  --docs-surface-1: #f2efe9;
+  --docs-surface-2: #ffffff;
+  --docs-surface-3: #e8e4dc;
+  --docs-well: #eeeae3;
+
+  --docs-line: #d8d2c8;
+  --docs-line-soft: #e4dfd6;
+  --docs-line-strong: #8f877a;
+
+  --docs-text: #1a1815;
+  --docs-text-2: #4d473e;
+  --docs-text-3: #5e574c;
+  --docs-text-4: #655e52;
+  --docs-label: #5e574c;
+
+  --docs-accent: #8a6620;
+  --docs-accent-strong: #634914;
+  --docs-accent-muted: #a08145;
+  --docs-accent-wash: rgb(138 102 32 / 10%);
+  --docs-accent-line: rgb(138 102 32 / 32%);
+  --docs-accent-contrast: #ffffff;
+
+  --docs-success: #2c6539;
+  --docs-warning: #7d4c0d;
+  --docs-danger: #98351f;
+
+  --docs-shadow-lg: 0 24px 56px -18px rgb(26 24 21 / 25%);
+  --docs-scrim: rgb(26 24 21 / 40%);
+  --docs-selection: rgb(138 102 32 / 26%);
+
+  --docs-syn-tag: #22683a;
+  --docs-syn-attr: #14508f;
+  --docs-syn-string: #1d456d;
+  --docs-syn-keyword: #a8232f;
+  --docs-syn-comment: #655e52;
+  --docs-syn-number: #14508f;
+  --docs-syn-title: #5a3095;
+  --docs-syn-meta: #8a4c12;
+}
+
+// ── Treatments ──────────────────────────────────────────────────────────── //
+// Everything below is what makes this read as a terminal rather than just a
+// recolour. All of it is optional: a theme may ship tokens only.
+
+[data-docs-theme="terminal"] {
+  .docs-brand-name,
+  .docs-title,
+  .docs-nav-group-label,
+  .docs-toc-label,
+  .docs-api-group-title,
+  .docs-pager-page {
+    font-family: var(--docs-font-mono);
+    font-weight: 500;
+  }
+
+  // Prefix the label *text*, so on a collapsible section the marker reads
+  // `> // api_reference` rather than sitting before the disclosure chevron.
+  .docs-nav-group-name::before,
+  .docs-toc-label::before {
+    content: "// ";
+    color: var(--docs-accent-muted);
+  }
+
+  .docs-nav-group-label,
+  .docs-toc-label {
+    text-transform: lowercase;
+    letter-spacing: 0.02em;
+    font-weight: 400;
+    color: var(--docs-accent);
+  }
+
+  .docs-nav-group .docs-dot {
+    border-radius: 0;
+    width: 4px;
+    height: 4px;
+  }
+
+  .docs-prose h2 {
+    text-transform: lowercase;
+  }
+
+  .docs-heading-num::before {
+    content: "## ";
+    color: var(--docs-accent-muted);
+  }
+
+  .docs-badge {
+    padding: 0;
+    border: none !important;
+    background: none !important;
+    text-transform: lowercase;
+    font-weight: 400;
+
+    &::before {
+      content: "[";
+      color: var(--docs-text-4);
+    }
+
+    &::after {
+      content: "]";
+      color: var(--docs-text-4);
+    }
+  }
+
+  .docs-api-table th {
+    font-family: var(--docs-font-mono);
+    text-transform: lowercase;
+  }
+
+  // the gutter itself is in the base layer; this only tints it
+  .docs-code-gutter {
+    color: var(--docs-accent-muted);
+    border-right-color: var(--docs-line);
+  }
+}

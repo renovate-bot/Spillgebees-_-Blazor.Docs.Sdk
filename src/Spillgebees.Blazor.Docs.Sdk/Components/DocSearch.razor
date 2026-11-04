@@ -1,0 +1,275 @@
+@namespace Spillgebees.Blazor.Docs.Sdk
+@using Microsoft.AspNetCore.Components.Routing
+@using Microsoft.JSInterop
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+@inject NavigationManager NavigationManager
+
+<div class="docs-modal @(_isOpen ? "docs-open" : "")" @onkeydown="@OnKeyDown">
+    @if (_isOpen)
+    {
+        <div class="docs-modal-scrim" @onclick="@CloseAsync"></div>
+        <div class="docs-modal-box" role="dialog" aria-modal="true" aria-label="Search documentation" @ref="@_boxRef">
+            <div class="docs-modal-input">
+                <DocIcon Name="@DocIconName.Search" />
+                <input type="text"
+                       role="combobox"
+                       placeholder="Search pages, types, and members…"
+                       autocomplete="off"
+                       spellcheck="false"
+                       aria-label="Search documentation"
+                       aria-expanded="true"
+                       aria-autocomplete="list"
+                       aria-controls="docs-search-results"
+                       aria-activedescendant="@(_results.Count > 0 ? OptionId(_activeIndex) : null)"
+                       value="@_query"
+                       @oninput="@OnQueryChanged"
+                       @ref="@_inputRef" />
+                <kbd class="docs-kbd">esc</kbd>
+            </div>
+
+            @* Focus stays in the query field; the active row is announced
+               through aria-activedescendant, so rows are not tab stops. *@
+            <div class="docs-modal-results" id="docs-search-results" role="listbox" aria-label="Results">
+                @{
+                    var position = 0;
+                    var groupIndex = 0;
+                }
+                @foreach (var group in _results.GroupBy(result => result.Group))
+                {
+                    var groupId = $"docs-search-group-{groupIndex++}";
+
+                    <div role="group" aria-labelledby="@groupId">
+                        <p class="docs-modal-group" id="@groupId">@group.Key</p>
+
+                        @foreach (var result in group)
+                        {
+                            var index = position++;
+                            var isActive = index == _activeIndex;
+                            var (before, match, after) = DocSearchIndex.SplitOnMatch(result.Title, _query);
+
+                            <div class="docs-modal-row @(isActive ? "docs-on" : "")"
+                                 id="@OptionId(index)"
+                                 role="option"
+                                 aria-selected="@(isActive ? "true" : "false")"
+                                 @onclick="@(() => NavigateToAsync(result))"
+                                 @onmouseenter="@(() => _activeIndex = index)">
+                                <DocIcon Name="@IconFor(result.Kind)" />
+                                <span class="docs-modal-row-text">
+                                    @before
+                                    @if (match.Length > 0)
+                                    {
+                                        <mark>@match</mark>
+                                    }
+                                    @after
+                                </span>
+                                <span class="docs-modal-row-path">@LabelFor(result.Kind)</span>
+                            </div>
+                        }
+                    </div>
+                }
+
+                @if (_results.Count == 0)
+                {
+                    <p class="docs-modal-empty">No matches for &ldquo;@_query&rdquo;.</p>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private const int MaxResults = 12;
+
+    /// <summary>
+    /// The full search index. Build it with
+    /// <see cref="DocSearchEntry.FromNavigation"/> and append your own entries.
+    /// </summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<DocSearchEntry> Entries { get; set; } = [];
+
+    private bool _isOpen;
+    private string _query = "";
+    private int _activeIndex;
+    private IReadOnlyList<DocSearchEntry> _results = [];
+    private ElementReference _inputRef;
+    private ElementReference _boxRef;
+    private DotNetObjectReference<DocSearch>? _selfRef;
+    private bool _shouldFocus;
+    private bool _shouldReveal;
+
+    protected override void OnParametersSet() => _results = Search(_query);
+
+    /// <summary>
+    /// Ranked results, regrouped so each group is contiguous. Groups appear in
+    /// the order of their best match, and results keep their rank inside a
+    /// group. Without this, interleaved ranks render a group header twice.
+    /// </summary>
+    private IReadOnlyList<DocSearchEntry> Search(string query) =>
+        [.. DocSearchIndex.Search(Entries, query, MaxResults).GroupBy(result => result.Group).SelectMany(group => group)];
+
+    private static string OptionId(int index) => $"docs-search-option-{index}";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _selfRef = DotNetObjectReference.Create(this);
+            await InvokeSafelyAsync("registerShortcuts", _selfRef);
+        }
+
+        if (_shouldFocus)
+        {
+            _shouldFocus = false;
+            await InvokeSafelyAsync("trapFocus", "search", _boxRef);
+            await InvokeSafelyAsync("focusElement", _inputRef);
+        }
+
+        if (_shouldReveal)
+        {
+            _shouldReveal = false;
+            await InvokeSafelyAsync("scrollOptionIntoView", OptionId(_activeIndex));
+        }
+    }
+
+    /// <summary>
+    /// Opens the palette. Invoked from JavaScript when the visitor presses
+    /// <c>⌘K</c>, <c>Ctrl+K</c> or <c>/</c>.
+    /// </summary>
+    [JSInvokable]
+    public async Task OpenFromShortcut() => await OpenAsync();
+
+    /// <summary>
+    /// Opens the palette and focuses the query field.
+    /// </summary>
+    public async Task OpenAsync()
+    {
+        if (_isOpen)
+        {
+            return;
+        }
+
+        _isOpen = true;
+        _query = "";
+        _activeIndex = 0;
+        _results = Search(_query);
+        _shouldFocus = true;
+        await InvokeSafelyAsync("setScrollLock", "search", true);
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Closes the palette, releases the focus trap and returns focus to the
+    /// element that opened it.
+    /// </summary>
+    public async Task CloseAsync()
+    {
+        if (!_isOpen)
+        {
+            return;
+        }
+
+        _isOpen = false;
+        await InvokeSafelyAsync("releaseFocusTrap", "search");
+        await InvokeSafelyAsync("setScrollLock", "search", false);
+        StateHasChanged();
+    }
+
+    private void OnQueryChanged(ChangeEventArgs args)
+    {
+        _query = args.Value?.ToString() ?? "";
+        _results = Search(_query);
+        _activeIndex = 0;
+        _shouldReveal = true;
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs args)
+    {
+        switch (args.Key)
+        {
+            case "ArrowDown":
+                Move(1);
+                break;
+            case "ArrowUp":
+                Move(-1);
+                break;
+            case "Enter" when _results.Count > 0:
+                await NavigateToAsync(_results[_activeIndex]);
+                break;
+            case "Escape":
+                await CloseAsync();
+                break;
+        }
+    }
+
+    private void Move(int delta)
+    {
+        if (_results.Count == 0)
+        {
+            return;
+        }
+
+        _activeIndex = (_activeIndex + delta + _results.Count) % _results.Count;
+        _shouldReveal = true;
+    }
+
+    private async Task NavigateToAsync(DocSearchEntry entry)
+    {
+        await CloseAsync();
+        NavigationManager.NavigateTo(entry.Href);
+    }
+
+    private static DocIconName IconFor(DocSearchEntryKind kind) =>
+        kind switch
+        {
+            DocSearchEntryKind.Type => DocIconName.Cube,
+            DocSearchEntryKind.Member => DocIconName.Hash,
+            DocSearchEntryKind.Section => DocIconName.Hash,
+            _ => DocIconName.Book,
+        };
+
+    private static string LabelFor(DocSearchEntryKind kind) =>
+        kind switch
+        {
+            DocSearchEntryKind.Type => "type",
+            DocSearchEntryKind.Member => "member",
+            DocSearchEntryKind.Section => "section",
+            _ => "page",
+        };
+
+    private async ValueTask InvokeSafelyAsync(string method, params object?[] args)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync($"Spillgebees.DocsSdk.{method}", args);
+        }
+        catch (JSException)
+        {
+            // the module is absent in prerender and in bUnit's default JS runtime
+        }
+        catch (JSDisconnectedException)
+        {
+            // the circuit is gone, e.g. the visitor closed the tab
+        }
+        catch (InvalidOperationException)
+        {
+            // JS interop is unavailable during prerendering
+        }
+        catch (TaskCanceledException)
+        {
+            // circuit torn down mid-call
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_isOpen)
+        {
+            await InvokeSafelyAsync("releaseFocusTrap", "search", false);
+            await InvokeSafelyAsync("setScrollLock", "search", false);
+        }
+
+        await InvokeSafelyAsync("unregisterShortcuts");
+        _selfRef?.Dispose();
+    }
+}

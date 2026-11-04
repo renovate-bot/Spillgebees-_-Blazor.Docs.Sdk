@@ -1,39 +1,38 @@
 @page "/components/code-block"
 
 <Breadcrumb Section="components" PageName="CodeBlock"
-            ApiReferenceUrl="api/CodeBlock"
+            ApiReferenceUrl='@DocsApiLinks.For("CodeBlock")'
             SourceUrl="https://github.com/Spillgebees/Blazor.Docs.Sdk/blob/main/src/Spillgebees.Blazor.Docs.Sdk/Components/CodeBlock.razor" />
-<OnThisPage />
 
 <h1>CodeBlock</h1>
 <p>Displays syntax-highlighted code with tabbed multi-file support and a copy-to-clipboard button.</p>
 
-<h2 id="live_example">// live_example</h2>
+<h2 id="live_example">Live example</h2>
 <p>Here is a live <code>CodeBlock</code> rendering a small C# snippet:</p>
 
 <CodeBlock Files="@_liveExample" Language="csharp" />
 
-<h2 id="single_file">// single_file</h2>
+<h2 id="single_file">Single file</h2>
 <p>Pass a dictionary with a single entry. The key becomes the file label shown above the code.</p>
 
 <CodeBlock Files="@_singleFile" Language="razor" />
 
-<h2 id="multiple_files">// multiple_files</h2>
+<h2 id="multiple_files">Multiple files</h2>
 <p>When multiple entries are provided, tabs are rendered above the code block. Clicking a tab switches the displayed file.</p>
 
 <CodeBlock Files="@_multipleFiles" Language="razor" />
 
-<h2 id="multi_file_live">// multi_file_live</h2>
-<p>A live example with two files and the collapsible file picker:</p>
+<h2 id="multi_file_live">Multi file live</h2>
+<p>Up to four files render as tabs:</p>
 
 <CodeBlock Files="@_twoFileExample" Language="razor" />
 
-<h2 id="many_files">// many_files</h2>
-<p>When there are many files, the tab bar scrolls horizontally. The copy button stays pinned at the right.</p>
+<h2 id="many_files">Many files</h2>
+<p>Past four files the tab strip would overflow the bar, so it is replaced by a file picker that always fits. The copy button stays pinned at the right.</p>
 
 <CodeBlock Files="@_manyFiles" Language="csharp" />
 
-<h2 id="language_override">// language_override</h2>
+<h2 id="language_override">Language override</h2>
 <p>Set <code>Language</code> to force a specific syntax highlighting grammar. Supported values mirror highlight.js language identifiers: <code>razor</code>, <code>csharp</code>, <code>xml</code>, <code>terminal</code>, <code>json</code>, and more.</p>
 
 <CodeBlock Files="@_languageOverride" Language="razor" />

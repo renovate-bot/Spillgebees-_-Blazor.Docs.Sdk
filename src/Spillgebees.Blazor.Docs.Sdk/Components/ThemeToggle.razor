@@ -2,46 +2,104 @@
 @using Microsoft.JSInterop
 @inject IJSRuntime JS
 
-<button class="theme-toggle" @onclick="@Toggle" aria-label="Toggle theme">
-    <span class="theme-toggle-label">theme:@ThemeLabel</span>
+<button type="button"
+        class="docs-icon-btn docs-theme-toggle"
+        @onclick="@CycleAsync"
+        title="@Title"
+        aria-label="@Title">
+    <DocIcon Name="@Icon" />
 </button>
 
 @code {
-    private bool? _isDark;
-    private string ThemeLabel => _isDark is null ? "..." : _isDark.Value ? "dark" : "light";
+    /// <summary>
+    /// Raised after the visitor changes the colour scheme preference.
+    /// </summary>
+    [Parameter]
+    public EventCallback<DocsColorScheme> OnSchemeChanged { get; set; }
 
+    // Bumped by DocSite whenever the theme or scheme changes anywhere, so a
+    // currently hidden copy re-reads the applied value.
+    [CascadingParameter(Name = DocSite.ChromeRevisionName)]
+    private int Revision { get; set; }
+
+    private DocsColorScheme _scheme = DocsColorScheme.System;
+    private int _lastRevision;
+
+    private DocIconName Icon =>
+        _scheme switch
+        {
+            DocsColorScheme.Light => DocIconName.Sun,
+            DocsColorScheme.Dark => DocIconName.Moon,
+            _ => DocIconName.Monitor,
+        };
+
+    private string Title =>
+        _scheme switch
+        {
+            DocsColorScheme.Light => "Colour scheme: light",
+            DocsColorScheme.Dark => "Colour scheme: dark",
+            _ => "Colour scheme: follow system",
+        };
+
+    // DocSite renders a second copy inside the mobile drawer. A parent
+    // re-render alone does not reliably re-run this hook on the sibling, so the
+    // shell bumps Revision and we re-read on that.
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
+        if (!firstRender && Revision == _lastRevision)
         {
-            try
-            {
-                var theme = await JS.InvokeAsync<string>("Spillgebees.DocsSdk.getTheme");
-                _isDark = theme != "light";
-            }
-            catch (JSException)
-            {
-                _isDark = true;
-            }
-            catch (Exception)
-            {
-                _isDark = true;
-            }
+            return;
+        }
 
+        _lastRevision = Revision;
+
+        var stored = await GetSchemeAsync();
+        if (stored != _scheme)
+        {
+            _scheme = stored;
             StateHasChanged();
         }
     }
 
-    private async Task Toggle()
+    private async Task CycleAsync()
     {
-        var newValue = !(_isDark ?? true);
+        _scheme = await CycleSchemeAsync();
+        StateHasChanged();
+        await OnSchemeChanged.InvokeAsync(_scheme);
+    }
+
+    private async Task<DocsColorScheme> GetSchemeAsync()
+    {
         try
         {
-            await JS.InvokeVoidAsync("Spillgebees.DocsSdk.setTheme", newValue ? "dark" : "light");
-            _isDark = newValue;
-            StateHasChanged();
+            var value = await JS.InvokeAsync<string>("Spillgebees.DocsSdk.getSchemePreference");
+            return DocsColorSchemeExtensions.ParseColorScheme(value);
         }
-        catch (JSException) { }
-        catch (Exception) { }
+        catch (Exception exception) when (IsInteropUnavailable(exception))
+        {
+            return DocsColorScheme.System;
+        }
     }
+
+    private async Task<DocsColorScheme> CycleSchemeAsync()
+    {
+        try
+        {
+            var value = await JS.InvokeAsync<string>("Spillgebees.DocsSdk.cycleSchemePreference");
+            return DocsColorSchemeExtensions.ParseColorScheme(value);
+        }
+        catch (Exception exception) when (IsInteropUnavailable(exception))
+        {
+            // fall back to cycling locally so the control still advances
+            return _scheme switch
+            {
+                DocsColorScheme.System => DocsColorScheme.Light,
+                DocsColorScheme.Light => DocsColorScheme.Dark,
+                _ => DocsColorScheme.System,
+            };
+        }
+    }
+
+    private static bool IsInteropUnavailable(Exception exception) =>
+        exception is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException;
 }

@@ -1,34 +1,72 @@
 @page "/"
 
-<div class="doc-hero">
-    <div class="doc-hero-brand">Spillgebees</div>
-    <h1 class="doc-hero-title">Blazor.Docs.Sdk</h1>
-    <p class="doc-hero-tagline">
-        Everything you need to build and deploy documentation sites
-        for your Blazor component libraries.
-    </p>
-    <div class="doc-hero-actions">
-        <a href="installation" class="doc-hero-cta-primary">Get Started</a>
-        <a href="https://github.com/Spillgebees/Blazor.Docs.Sdk"
-           target="_blank" rel="noopener noreferrer"
-           class="doc-hero-cta-secondary">View on GitHub</a>
+<p class="docs-eyebrow">Spillgebees open source</p>
+<h1 class="docs-title">Blazor.Docs.Sdk</h1>
+<p class="docs-lede">
+    Everything you need to build and deploy documentation sites for your Blazor
+    component libraries: shell, search, live examples, and a generated API reference.
+</p>
+
+<div class="docs-meta-row">
+    <span class="docs-chip">MIT licensed</span>
+    <span class="docs-chip"><code>net10.0</code></span>
+    <span class="docs-chip">Razor Class Library</span>
+</div>
+
+<CodeBlock Files="@_install" Language="terminal" />
+
+<h2 id="whats-included">What&rsquo;s included</h2>
+
+<ul>
+    <li><strong>Shell layout</strong>: top bar, sidebar, mobile drawer, on-this-page rail, footer.</li>
+    <li><strong>Command palette</strong>: <kbd class="docs-kbd">Ctrl K</kbd> search over pages and API types.</li>
+    <li><strong>Live examples</strong>: components rendered next to their build-time extracted source.</li>
+    <li><strong>API reference</strong>: generated from Roslyn manifests plus your XML doc comments.</li>
+    <li><strong>Theming</strong>: three built-in themes, plus a documented token contract for your own.</li>
+</ul>
+
+<div class="docs-callout">
+    <DocIcon Name="@DocIconName.Spark" />
+    <div class="docs-callout-body">
+        <p><strong>Try the theme picker.</strong> The selector in the top bar switches between the
+        <code>refined</code>, <code>terminal</code> and <code>glory-to-mankind</code> built-ins. All three are the same markup; only
+        design tokens differ.</p>
     </div>
 </div>
 
-<div class="doc-cards">
-    <div class="doc-card">
-        <div class="doc-card-icon">📐</div>
-        <h3 class="doc-card-title">Shell Layout</h3>
-        <p class="doc-card-desc">Sidebar, top bar, theme toggle, footer. One component wraps your entire docs site.</p>
-    </div>
-    <div class="doc-card">
-        <div class="doc-card-icon">👁</div>
-        <h3 class="doc-card-title">Live Examples</h3>
-        <p class="doc-card-desc">Show components running alongside their auto-extracted, syntax-highlighted source code.</p>
-    </div>
-    <div class="doc-card">
-        <div class="doc-card-icon">📖</div>
-        <h3 class="doc-card-title">API Reference</h3>
-        <p class="doc-card-desc">Auto-generated from XML doc comments and reflection. Parameters, methods, events.</p>
-    </div>
-</div>
+<h2 id="get-started">Get started</h2>
+
+<p>Add the package reference, then wrap your layout in <code>DocSite</code>.</p>
+
+<CodeBlock Files="@_layout" Language="razor" />
+
+@code {
+    private static readonly Dictionary<string, string> _install = new()
+    {
+        ["terminal"] = "dotnet add package Spillgebees.Blazor.Docs.Sdk",
+    };
+
+    private static readonly Dictionary<string, string> _layout = new()
+    {
+        ["MainLayout.razor"] = """
+            @inherits LayoutComponentBase
+
+            <DocSite ProjectName="Your.Library"
+                     LogoEmoji="🍓"
+                     GitHubUrl="https://github.com/Spillgebees/Your.Library"
+                     Navigation="@Navigation"
+                     Theme="@DocsTheme.Refined">
+                @Body
+            </DocSite>
+
+            @code {
+                private static readonly NavSection[] Navigation =
+                [
+                    new("Getting Started", [new NavPage("Home", "")]),
+                    // any type from your library; its ProjectReference needs DocsApi="true"
+                    NavSection.Collapsed("API Reference", ApiReferenceNav.Generate<MyComponent>()),
+                ];
+            }
+            """,
+    };
+}

@@ -1,0 +1,104 @@
+@namespace Spillgebees.Blazor.Docs.Sdk
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
+
+@* A native <select> renders its list with OS chrome that ignores the theme
+   entirely, and truncates long names. This is a button + listbox so the menu
+   matches the site. *@
+@if (Offered.Count > 1)
+{
+    <DocSelect TValue="DocsTheme"
+               Class="docs-theme-picker"
+               Items="@Offered"
+               Value="@Selected"
+               Label="@(theme => theme.DisplayName)"
+               Icon="@DocIconName.Palette"
+               AriaLabel="Theme"
+               ValueChanged="@SelectAsync" />
+}
+
+@code {
+    /// <summary>
+    /// The themes offered to the visitor. Defaults to
+    /// <see cref="DocsTheme.BuiltIn"/>; supply your own list to include a
+    /// custom theme or to restrict the choice.
+    /// </summary>
+    [Parameter]
+    public IReadOnlyList<DocsTheme> Themes { get; set; } = DocsTheme.BuiltIn;
+
+    /// <summary>
+    /// The theme applied when the visitor has not chosen one.
+    /// </summary>
+    [Parameter]
+    public DocsTheme DefaultTheme { get; set; } = DocsTheme.Refined;
+
+    /// <summary>
+    /// Raised after the visitor picks a theme.
+    /// </summary>
+    [Parameter]
+    public EventCallback<DocsTheme> OnThemeChanged { get; set; }
+
+    // Bumped by DocSite whenever the theme or scheme changes anywhere, so a
+    // currently hidden copy re-reads the applied value.
+    [CascadingParameter(Name = DocSite.ChromeRevisionName)]
+    private int Revision { get; set; }
+
+    private string _current = DocsTheme.Refined.Name;
+    private int _lastRevision;
+
+    // Seed from the site default once. Doing this in OnParametersSet would
+    // clobber the visitor's choice every time the shell re-renders.
+    protected override void OnInitialized() => _current = DefaultTheme.Name;
+
+    // See ThemeToggle: a parent re-render is not enough to re-run this on a
+    // sibling copy, so the shell bumps Revision.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender && Revision == _lastRevision)
+        {
+            return;
+        }
+
+        _lastRevision = Revision;
+
+        try
+        {
+            var applied = await JS.InvokeAsync<string>("Spillgebees.DocsSdk.getTheme");
+            if (!string.IsNullOrEmpty(applied) && applied != _current)
+            {
+                _current = applied;
+                StateHasChanged();
+            }
+        }
+        catch (Exception exception) when (IsInteropUnavailable(exception))
+        {
+            // keep the configured default
+        }
+    }
+
+    private DocsTheme Selected =>
+        Offered.FirstOrDefault(theme => theme.Name == _current) ?? DefaultTheme;
+
+    // The site's default is always offered, so a visitor who switches away can
+    // get back to it even when it was left out of Themes.
+    private IReadOnlyList<DocsTheme> Offered => Themes.Contains(DefaultTheme) ? Themes : [DefaultTheme, .. Themes];
+
+    private async Task SelectAsync(DocsTheme theme)
+    {
+        _current = theme.Name;
+
+        try
+        {
+            await JS.InvokeVoidAsync("Spillgebees.DocsSdk.setTheme", theme.Name, true);
+        }
+        catch (Exception exception) when (IsInteropUnavailable(exception))
+        {
+            // nothing to apply without the module
+        }
+
+        await OnThemeChanged.InvokeAsync(theme);
+    }
+
+    private static bool IsInteropUnavailable(Exception exception) =>
+        exception is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException;
+}

@@ -1,0 +1,1002 @@
+// Documentation widgets: code blocks, the live example view and the generated
+// API reference.
+
+// ── Code block ──────────────────────────────────────────────────────────── //
+
+// `overflow: hidden` would clip the file picker's menu, so the corners are
+// rounded on the children instead of clipped on the container.
+.docs-code {
+  margin: var(--docs-space-6) 0;
+  background: var(--docs-surface-1);
+  border: 1px solid var(--docs-line-soft);
+  border-radius: var(--docs-radius-md);
+  box-shadow: var(--docs-shadow-md);
+
+  &-bar {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    // whole pixels, so the selected tab's inset rounds the same above and
+    // below at fractional scaling; every control in the bar is 24px tall
+    padding: 6px;
+    background: var(--docs-surface-2);
+    border-bottom: 1px solid var(--docs-line-soft);
+    border-radius: calc(var(--docs-radius-md) - 1px) calc(var(--docs-radius-md) - 1px) 0 0;
+  }
+
+  &-tabs {
+    display: flex;
+    gap: 2px;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  &-tab {
+    display: flex;
+    align-items: center;
+    height: 24px;
+    padding: 0 var(--docs-space-3);
+    background: none;
+    border: none;
+    border-radius: var(--docs-radius-xs);
+    font-family: var(--docs-font-mono);
+    font-size: var(--docs-text-xs);
+    color: var(--docs-text-3);
+    white-space: nowrap;
+    transition: color var(--docs-duration-fast) var(--docs-ease),
+      background var(--docs-duration-fast) var(--docs-ease);
+
+    &:hover {
+      color: var(--docs-text);
+      background: var(--docs-surface-3);
+    }
+
+    &.docs-on {
+      color: var(--docs-text);
+      background: var(--docs-surface-3);
+      font-weight: 500;
+    }
+
+    // the strip scrolls, so an outset ring would be clipped
+    &:focus-visible {
+      outline-offset: -2px;
+    }
+  }
+
+  // Shown instead of tabs once there are too many files to fit; a compact
+  // variant of the shared themed select. With four files or fewer both are
+  // rendered and the JS module adds `docs-code-compact` when the tabs overflow.
+  &:not(.docs-code-compact) &-bar:has(.docs-code-tabs) &-filepicker,
+  &.docs-code-compact &-tabs {
+    display: none;
+  }
+
+  // a block with one file names it, with nothing to select between
+  // shrinks and truncates like the picker; the full name is in its title
+  &-file {
+    display: block;
+    min-width: 0;
+    height: 24px;
+    padding: 0 6px;
+    overflow: hidden;
+    font-family: var(--docs-font-mono);
+    font-size: var(--docs-text-xs);
+    line-height: 24px;
+    color: var(--docs-text-2);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &-filepicker {
+    // may shrink, so a long file name cannot push Copy out of the bar
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 18rem;
+
+    .docs-select-trigger {
+      height: 24px;
+      background: var(--docs-surface-3);
+      font-family: var(--docs-font-mono);
+      font-size: var(--docs-text-xs);
+      color: var(--docs-text);
+    }
+
+    .docs-select-menu {
+      font-family: var(--docs-font-mono);
+    }
+
+    .docs-select-menu button {
+      font-family: var(--docs-font-mono);
+      font-size: var(--docs-text-xs);
+    }
+  }
+
+  &-lang {
+    margin-left: auto;
+    padding: 0 var(--docs-space-2);
+    font-family: var(--docs-font-mono);
+    font-size: var(--docs-text-2xs);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--docs-label);
+  }
+
+  &-copy {
+    display: flex;
+    align-items: center;
+    gap: var(--docs-space-2);
+    flex: none;
+    height: 24px;
+    padding: 0 var(--docs-space-3);
+    background: none;
+    border: none;
+    border-radius: var(--docs-radius-xs);
+    font-family: var(--docs-font-mono);
+    font-size: var(--docs-text-2xs);
+    color: var(--docs-text-3);
+    transition: color var(--docs-duration-fast) var(--docs-ease),
+      background var(--docs-duration-fast) var(--docs-ease);
+
+    svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    &:hover {
+      color: var(--docs-accent-strong);
+      background: var(--docs-accent-wash);
+    }
+
+    &.docs-copied {
+      color: var(--docs-accent);
+      background: var(--docs-accent-wash);
+    }
+
+    &.docs-failed {
+      color: var(--docs-danger);
+    }
+  }
+
+  pre {
+    margin: 0;
+    padding: var(--docs-space-5);
+    overflow-x: auto;
+    // the prose `pre` rule (for code in XML docs) must not reach in here
+    background: none;
+    border: 0;
+    border-radius: 0 0 calc(var(--docs-radius-md) - 1px) calc(var(--docs-radius-md) - 1px);
+  }
+
+  code {
+    display: block;
+    min-width: max-content;
+    font-family: var(--docs-font-mono);
+    font-size: var(--docs-text-sm);
+    line-height: 1.65;
+    tab-size: 4;
+    counter-reset: docs-line;
+  }
+}
+
+// Embedded inside another surface (e.g. the example view's source pane).
+.docs-code-bare {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  height: 100%;
+
+  .docs-code-bar,
+  pre {
+    border-radius: 0;
+  }
+}
+
+// ── Line-number gutter ──────────────────────────────────────────────────── //
+//
+// The gutter is a sibling of the scrolling `pre`, not something inside it. When
+// the numbers lived inside, a long line scrolled underneath them; as a separate
+// column that cannot happen, and the gutter becomes a real element themes can
+// style.
+
+.docs-code-body {
+  display: grid;
+  // `minmax(0, 1fr)` is what lets the code column actually shrink and scroll
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: start;
+}
+
+.docs-code-gutter {
+  display: flex;
+  flex-direction: column;
+  padding: var(--docs-space-5) 0;
+  border-right: 1px solid var(--docs-line-soft);
+  font-family: var(--docs-font-mono);
+  font-size: var(--docs-text-sm);
+  line-height: 1.65;
+  text-align: right;
+  color: var(--docs-text-4);
+  // never part of a selection, so copying the code never picks up numbers
+  user-select: none;
+  -webkit-user-select: none;
+
+  span {
+    display: block;
+    padding: 0 var(--docs-space-4) 0 var(--docs-space-5);
+    // matches the fallback in the JS measurement
+    min-height: 1.65em;
+  }
+
+  // an empty gutter (no numbers yet, or a theme that opts out) takes no room
+  &:empty {
+    display: none;
+  }
+}
+
+// Lines stay inline and are separated by real newline text nodes, so selecting
+// the code by hand copies with its line breaks intact.
+.docs-code-line {
+  display: inline;
+}
+
+// Themes opt out of numbering by hiding the column.
+[data-docs-code-gutter="false"] .docs-code-gutter {
+  display: none;
+}
+
+// ── Soft wrap ───────────────────────────────────────────────────────────── //
+//
+// Opt-in, persisted site-wide. Long lines then reflow instead of scrolling,
+// which matters most on a phone where a horizontal scroll inside a block is
+// awkward to hit. Gutter cell heights are synced from JS, since one logical
+// line can span several visual rows.
+
+[data-docs-code-wrap="true"] .docs-code pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow-x: hidden;
+}
+
+// `min-width: max-content` keeps the code column as wide as its longest line so
+// it scrolls as one piece; that also stops it ever wrapping, so it has to go
+// when soft wrap is on.
+[data-docs-code-wrap="true"] .docs-code code {
+  min-width: 0;
+}
+
+.docs-code-wrap {
+  display: flex;
+  align-items: center;
+  flex: none;
+  height: 24px;
+  padding: 0 var(--docs-space-2);
+  background: none;
+  border: none;
+  border-radius: var(--docs-radius-xs);
+  color: var(--docs-text-4);
+  transition: color var(--docs-duration-fast) var(--docs-ease),
+    background var(--docs-duration-fast) var(--docs-ease);
+
+  svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  &:hover {
+    color: var(--docs-text-2);
+    background: var(--docs-surface-3);
+  }
+}
+
+// The button's state comes from the document attribute rather than component
+// state, so every block's toggle shows the same thing without any syncing.
+[data-docs-code-wrap="true"] .docs-code-wrap {
+  color: var(--docs-accent);
+  background: var(--docs-accent-wash);
+}
+
+// ── Syntax highlighting (highlight.js token classes) ────────────────────── //
+
+.hljs {
+  color: var(--docs-text);
+  background: transparent;
+}
+
+.hljs-name,
+.hljs-selector-tag,
+.hljs-quote {
+  color: var(--docs-syn-tag);
+}
+
+.hljs-attr,
+.hljs-attribute,
+.hljs-selector-attr,
+.hljs-selector-class,
+.hljs-selector-id {
+  color: var(--docs-syn-attr);
+}
+
+.hljs-string,
+.hljs-regexp,
+.hljs-meta .hljs-string {
+  color: var(--docs-syn-string);
+}
+
+.hljs-keyword,
+.hljs-doctag,
+.hljs-type,
+.hljs-template-tag,
+.hljs-template-variable,
+.hljs-variable.language_ {
+  color: var(--docs-syn-keyword);
+}
+
+.hljs-comment,
+.hljs-code,
+.hljs-formula {
+  color: var(--docs-syn-comment);
+  font-style: italic;
+}
+
+.hljs-number,
+.hljs-literal,
+.hljs-variable,
+.hljs-operator {
+  color: var(--docs-syn-number);
+}
+
+.hljs-title,
+.hljs-title.class_,
+.hljs-title.function_,
+.hljs-section {
+  color: var(--docs-syn-title);
+}
+
+.hljs-meta,
+.hljs-built_in,
+.hljs-symbol,
+.hljs-bullet {
+  color: var(--docs-syn-meta);
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-strong {
+  font-weight: 700;
+}
+
+// ── Example view ────────────────────────────────────────────────────────── //
+
+.docs-example {
+  margin: var(--docs-space-6) 0;
+  border: 1px solid var(--docs-line);
+  border-radius: var(--docs-radius-lg);
+  box-shadow: var(--docs-shadow-sm);
+
+  &-head {
+    display: flex;
+    align-items: center;
+    gap: var(--docs-space-2);
+    padding: 6px var(--docs-space-3);
+    background: var(--docs-surface-2);
+    border-bottom: 1px solid var(--docs-line-soft);
+    border-radius: calc(var(--docs-radius-lg) - 1px) calc(var(--docs-radius-lg) - 1px) 0 0;
+  }
+
+  &-title {
+    font-size: var(--docs-text-md);
+    font-weight: 600;
+    color: var(--docs-text);
+    margin-right: auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &-seg {
+    display: flex;
+    gap: 2px;
+    flex: none;
+    // 4px rather than 3: whole device pixels at 1.25x, 1.5x and 2x, so the
+    // selected button's inset rounds the same above and below
+    padding: 4px;
+    background: var(--docs-well);
+    border-radius: var(--docs-radius-sm);
+
+    // same height as the viewport buttons beside it; text-only buttons
+    // would otherwise come out shorter than these icon + label ones
+    button {
+      display: flex;
+      align-items: center;
+      gap: var(--docs-space-2);
+      height: 24px;
+      padding: 0 var(--docs-space-3);
+      background: none;
+      border: none;
+      border-radius: var(--docs-radius-xs);
+      font-size: var(--docs-text-sm);
+      font-weight: 500;
+      color: var(--docs-text-3);
+      transition: color var(--docs-duration-fast) var(--docs-ease),
+        background var(--docs-duration-fast) var(--docs-ease);
+
+      svg {
+        width: 14px;
+        height: 14px;
+      }
+
+      &:hover {
+        color: var(--docs-text);
+      }
+
+      &.docs-on {
+        color: var(--docs-text);
+        background: var(--docs-surface-2);
+        box-shadow: var(--docs-shadow-sm);
+      }
+    }
+  }
+
+  &-viewports {
+    display: flex;
+    gap: 2px;
+    flex: none;
+    padding: 4px;
+    background: var(--docs-well);
+    border-radius: var(--docs-radius-sm);
+
+    button {
+      display: flex;
+      align-items: center;
+      height: 24px;
+      padding: 0 var(--docs-space-2);
+      background: none;
+      border: none;
+      border-radius: var(--docs-radius-xs);
+      font-family: var(--docs-font-mono);
+      font-size: var(--docs-text-2xs);
+      color: var(--docs-text-3);
+
+      &:hover {
+        color: var(--docs-text);
+      }
+
+      // same selected treatment as the mode buttons beside it
+      &.docs-on {
+        color: var(--docs-text);
+        background: var(--docs-surface-2);
+        box-shadow: var(--docs-shadow-sm);
+      }
+    }
+  }
+
+  &-body {
+    display: grid;
+  }
+
+  &-preview {
+    padding: var(--docs-space-8) var(--docs-space-5);
+    background: var(--docs-bg);
+    min-width: 0;
+  }
+
+  &-stage {
+    margin-inline: auto;
+    transition: max-width var(--docs-duration-base) var(--docs-ease);
+  }
+
+  &-source {
+    min-width: 0;
+    background: var(--docs-well);
+
+    .docs-code {
+      margin: 0;
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
+      background: transparent;
+      height: 100%;
+    }
+  }
+
+  &-empty {
+    display: flex;
+    align-items: center;
+    gap: var(--docs-space-3);
+    padding: var(--docs-space-8) var(--docs-space-5);
+    margin: 0;
+    background: var(--docs-well);
+    font-family: var(--docs-font-mono);
+    font-size: var(--docs-text-sm);
+    color: var(--docs-text-3);
+
+    code {
+      background: none;
+      padding: 0;
+      color: var(--docs-text-2);
+    }
+  }
+
+  // mode + viewport state
+  &[data-docs-mode="preview"] &-source,
+  &[data-docs-mode="source"] &-preview {
+    display: none;
+  }
+
+  // round whichever pane is actually last *and visible* for the current mode
+  &[data-docs-mode="preview"] &-preview,
+  &[data-docs-mode="source"] &-source,
+  &[data-docs-mode="split"] &-source {
+    border-radius: 0 0 calc(var(--docs-radius-lg) - 1px) calc(var(--docs-radius-lg) - 1px);
+  }
+
+  // Split stacks vertically rather than side by side: a docs column is ~760px,
+  // so two columns leave neither the preview nor the code enough width to be
+  // readable. The code pane gets its own capped scroll so the preview stays in
+  // view; the dedicated Source mode remains uncapped.
+  &[data-docs-mode="split"] &-source {
+    border-top: 1px solid var(--docs-line-soft);
+    max-height: var(--docs-example-split-max-height);
+    overflow-y: auto;
+  }
+
+  &-preview[data-docs-viewport="md"] .docs-example-stage {
+    max-width: 768px;
+    outline: 1px dashed var(--docs-line-strong);
+    outline-offset: var(--docs-space-4);
+  }
+
+  &-preview[data-docs-viewport="sm"] .docs-example-stage {
+    max-width: 375px;
+    outline: 1px dashed var(--docs-line-strong);
+    outline-offset: var(--docs-space-4);
+  }
+}
+
+@media (max-width: 820px) {
+  .docs-example {
+    &-head {
+      flex-wrap: wrap;
+    }
+
+    &-viewports {
+      display: none;
+    }
+
+    &[data-docs-mode="split"] .docs-example-source {
+      max-height: 16rem;
+    }
+  }
+}
+
+// ── API reference ───────────────────────────────────────────────────────── //
+
+.docs-api {
+  &-toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--docs-space-3);
+    margin: var(--docs-space-5) 0;
+  }
+
+  &-filter {
+    display: flex;
+    align-items: center;
+    gap: var(--docs-space-2);
+    flex: 1;
+    min-width: 12rem;
+    padding: var(--docs-space-2) var(--docs-space-3);
+    background: var(--docs-surface-1);
+    border: 1px solid var(--docs-line);
+    border-radius: var(--docs-radius-sm);
+    color: var(--docs-text-4);
+
+    &:focus-within {
+      border-color: var(--docs-accent);
+    }
+
+    // the input drops its own outline, so the field shows the keyboard ring
+    &:has(input:focus-visible) {
+      outline: 2px solid var(--docs-accent);
+      outline-offset: 2px;
+    }
+
+    svg {
+      width: 15px;
+      height: 15px;
+      flex: none;
+    }
+
+    input {
+      flex: 1;
+      min-width: 0;
+      background: none;
+      border: none;
+      outline: none;
+      color: var(--docs-text);
+      font-size: var(--docs-text-md);
+
+      // iOS Safari zooms the page when focusing a smaller input
+      @media (pointer: coarse) {
+        font-size: 16px;
+      }
+
+      &::placeholder {
+        color: var(--docs-text-4);
+      }
+    }
+  }
+
+  &-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--docs-space-2);
+    font-size: var(--docs-text-sm);
+    color: var(--docs-text-2);
+    cursor: pointer;
+    user-select: none;
+
+    // Drawn from tokens: the native box ignores the theme when unchecked.
+    // Checked is a filled square inset in the box.
+    input {
+      appearance: none;
+      flex: none;
+      // whole device pixels at 1.25x, 1.5x and 2x, so the inset is even
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      background: var(--docs-surface-1);
+      border: 1px solid var(--docs-line-strong);
+      border-radius: var(--docs-radius-xs);
+      cursor: pointer;
+
+      &:checked {
+        background: var(--docs-accent);
+        border-color: var(--docs-accent);
+        box-shadow: inset 0 0 0 2px var(--docs-surface-1);
+      }
+
+      &:hover {
+        border-color: var(--docs-accent);
+      }
+    }
+  }
+
+  &-count {
+    font-family: var(--docs-font-mono);
+    font-size: var(--docs-text-2xs);
+    color: var(--docs-text-4);
+  }
+
+  &-group {
+    margin: var(--docs-space-6) 0;
+  }
+
+  // the heading wraps the toggle button so the group stays in the outline
+  &-group-heading {
+    margin: 0;
+    font: inherit;
+  }
+
+  &-group-head {
+    display: flex;
+    align-items: center;
+    gap: var(--docs-space-3);
+    width: 100%;
+    padding: var(--docs-space-3) 0;
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--docs-line-soft);
+    text-align: left;
+
+    svg {
+      width: 14px;
+      height: 14px;
+      flex: none;
+      color: var(--docs-text-4);
+      transition: transform var(--docs-duration-fast) var(--docs-ease);
+    }
+  }
+
+  &-group[data-docs-open="true"] &-group-head svg {
+    transform: rotate(90deg);
+  }
+
+  &-group-title {
+    margin: 0;
+    font-family: var(--docs-font-display);
+    font-size: var(--docs-text-xl);
+    font-weight: 600;
+    color: var(--docs-text);
+  }
+
+  &-group-count {
+    font-family: var(--docs-font-mono);
+    font-size: var(--docs-text-2xs);
+    padding: 0.1rem 0.45rem;
+    border-radius: var(--docs-radius-pill);
+    background: var(--docs-well);
+    color: var(--docs-text-4);
+  }
+
+  &-group-body {
+    display: none;
+  }
+
+  &-group[data-docs-open="true"] &-group-body {
+    display: block;
+  }
+
+  &-empty {
+    padding: var(--docs-space-6);
+    text-align: center;
+    color: var(--docs-text-3);
+    font-size: var(--docs-text-md);
+  }
+
+  &-table-wrap {
+    margin: var(--docs-space-5) 0;
+    border: 1px solid var(--docs-line);
+    border-radius: var(--docs-radius-md);
+    overflow-x: auto;
+  }
+
+  &-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--docs-text-md);
+
+    th {
+      padding: var(--docs-space-3) var(--docs-space-5);
+      background: var(--docs-surface-2);
+      border-bottom: 1px solid var(--docs-line);
+      font-size: var(--docs-text-2xs);
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--docs-label);
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    td {
+      padding: var(--docs-space-4) var(--docs-space-5);
+      border-bottom: 1px solid var(--docs-line-soft);
+      vertical-align: top;
+      color: var(--docs-text-2);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: var(--docs-surface-1);
+    }
+  }
+
+  &-name {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--docs-space-1);
+    font-family: var(--docs-font-mono);
+    font-size: var(--docs-text-sm);
+    font-weight: 500;
+    color: var(--docs-text);
+    text-decoration: none;
+    scroll-margin-top: calc(var(--docs-topbar-height) + var(--docs-space-4));
+
+    &:hover {
+      color: var(--docs-accent-strong);
+      text-decoration: none;
+    }
+
+    svg {
+      width: 12px;
+      height: 12px;
+      opacity: 0;
+      transition: opacity var(--docs-duration-fast) var(--docs-ease);
+    }
+
+    &:hover svg {
+      opacity: 1;
+    }
+  }
+
+  &-type {
+    font-family: var(--docs-font-mono);
+    font-size: var(--docs-text-xs);
+    color: var(--docs-accent);
+    // a wrapped generic reads as two types; the table scrolls instead
+    white-space: nowrap;
+  }
+
+  // Badges sit on their own line under the name, so whether a row wraps does
+  // not depend on how long the member name happens to be.
+  &-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--docs-space-1);
+    margin-top: var(--docs-space-2);
+
+    .docs-badge {
+      margin-left: 0;
+    }
+  }
+
+  &-default {
+    font-family: var(--docs-font-mono);
+    font-size: var(--docs-text-xs);
+    color: var(--docs-text-3);
+  }
+
+  &-member {
+    padding: var(--docs-space-5) 0;
+    border-bottom: 1px solid var(--docs-line-soft);
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  &-member-sig {
+    margin: 0 0 var(--docs-space-3);
+    padding: var(--docs-space-3) var(--docs-space-4);
+    background: var(--docs-surface-1);
+    border: 1px solid var(--docs-line-soft);
+    border-radius: var(--docs-radius-sm);
+    font-family: var(--docs-font-mono);
+    font-size: var(--docs-text-sm);
+    line-height: 1.6;
+    color: var(--docs-text);
+    // generic signatures are long; wrapping reads better than a scrollbar that
+    // clips the return type mid-word
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  // parameter documentation, as a definition list rather than run-on prose
+  &-params {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: var(--docs-space-2) var(--docs-space-4);
+    margin: 0 0 var(--docs-space-3);
+    padding-left: var(--docs-space-4);
+    border-left: 2px solid var(--docs-line);
+
+    dt {
+      font-family: var(--docs-font-mono);
+      font-size: var(--docs-text-sm);
+
+      code {
+        background: none;
+        padding: 0;
+        color: var(--docs-text);
+      }
+    }
+
+    dd {
+      margin: 0;
+      font-size: var(--docs-text-md);
+      color: var(--docs-text-2);
+
+      > :last-child {
+        margin-bottom: 0;
+      }
+    }
+  }
+
+  // XML doc summaries arrive as bare text plus inline markup, so they need
+  // their own spacing; there is no <p> to carry a margin.
+  &-summary {
+    margin-bottom: var(--docs-space-5);
+  }
+}
+
+.docs-badge {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  margin-left: var(--docs-space-2);
+  border-radius: var(--docs-radius-xs);
+  font-size: var(--docs-text-2xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+  white-space: nowrap;
+
+  &-required {
+    color: var(--docs-accent-strong);
+    background: var(--docs-accent-wash);
+    border: 1px solid var(--docs-accent-line);
+  }
+
+  &-optional {
+    color: var(--docs-text-3);
+    background: var(--docs-well);
+  }
+}
+
+// On phones the member tables become one block per member: a three-column
+// table there pushes the description off-screen. Each value is labelled from
+// its cell's `data-label`, since the header row is hidden.
+@media (max-width: 640px) {
+  .docs-api-table {
+    thead {
+      display: none;
+    }
+
+    tr {
+      display: block;
+      padding: var(--docs-space-4);
+      border-bottom: 1px solid var(--docs-line-soft);
+    }
+
+    tr:last-child {
+      border-bottom: none;
+    }
+
+    td {
+      display: block;
+      padding: 0;
+      border: 0;
+    }
+
+    td + td {
+      margin-top: var(--docs-space-2);
+    }
+
+    td[data-label] {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: var(--docs-space-2);
+
+      &::before {
+        content: attr(data-label);
+        min-width: 6rem;
+        font-size: var(--docs-text-2xs);
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--docs-label);
+      }
+    }
+
+    tr:hover td {
+      background: none;
+    }
+  }
+
+  // there is no sideways scroll to fall back on any more
+  .docs-api-type {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .docs-api-name {
+    display: flex;
+    flex-wrap: wrap;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  // only members with a default carry a value; skip the bare label otherwise
+  .docs-api-table td[data-label="Default"]:not(:has(code)) {
+    display: none;
+  }
+
+  .docs-api-table-wrap {
+    overflow-x: visible;
+  }
+}

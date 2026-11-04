@@ -2,41 +2,120 @@
 @using Microsoft.AspNetCore.Components
 @typeparam TComponent where TComponent : IComponent
 
-<div class="example-view">
-    <div class="example-view-toggle">
-        <button class="example-view-mode @(_mode == "preview" ? "active" : "")"
-                @onclick="@(() => _mode = "preview")">preview</button>
-        <button class="example-view-mode @(_mode == "code" ? "active" : "")"
-                @onclick="@(() => _mode = "code")">code</button>
-    </div>
+<figure class="docs-example" data-docs-mode="@ModeValue" id="@Id">
+    <figcaption class="docs-example-head">
+        @if (!string.IsNullOrEmpty(Title))
+        {
+            <span class="docs-example-title">@Title</span>
+        }
 
-    @if (_mode == "preview")
-    {
-        <div class="example-view-preview">
-            @ChildContent
+        <div class="docs-example-seg" role="tablist" aria-label="Example display mode">
+            @foreach (var mode in Modes)
+            {
+                var value = mode;
+                <button type="button"
+                        role="tab"
+                        class="@(_mode == value ? "docs-on" : "")"
+                        aria-selected="@(_mode == value ? "true" : "false")"
+                        @onclick="@(() => SetModeAsync(value))">
+                    <DocIcon Name="@IconFor(value)" />
+                    <span>@LabelFor(value)</span>
+                </button>
+            }
         </div>
-    }
-    else if (_sourceFiles.Count > 0)
-    {
-        <CodeBlock Files="@_sourceFiles" Language="razor" />
-    }
-    else
-    {
-        <div class="example-view-no-source">
-            source not available
+
+        @if (ShowViewportControls)
+        {
+            <div class="docs-example-viewports" role="group" aria-label="Preview width">
+                @foreach (var viewport in Viewports)
+                {
+                    var value = viewport;
+                    <button type="button"
+                            class="@(_viewport == value ? "docs-on" : "")"
+                            aria-pressed="@(_viewport == value ? "true" : "false")"
+                            title="@ViewportTitle(value)"
+                            @onclick="@(() => _viewport = value)">@ViewportLabel(value)</button>
+                }
+            </div>
+        }
+    </figcaption>
+
+    <div class="docs-example-body">
+        <div class="docs-example-preview" data-docs-viewport="@ViewportValue">
+            <div class="docs-example-stage">
+                @ChildContent
+            </div>
         </div>
-    }
-</div>
+
+        <div class="docs-example-source">
+            @if (_sourceFiles.Count > 0)
+            {
+                <CodeBlock Files="@_sourceFiles" Language="razor" Bare="true" />
+            }
+            else
+            {
+                <p class="docs-example-empty">
+                    No source was extracted for <code>@typeof(TComponent).Name</code>.
+                </p>
+            }
+        </div>
+    </div>
+</figure>
 
 @code {
+    private static readonly ExampleMode[] Modes =
+        [ExampleMode.Preview, ExampleMode.Source, ExampleMode.Split];
+
+    private static readonly ExampleViewport[] Viewports =
+        [ExampleViewport.Full, ExampleViewport.Medium, ExampleViewport.Small];
+
+    /// <summary>The live component instance to render in the preview pane.</summary>
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
 
+    /// <summary>
+    /// Extra types whose extracted source is shown as additional tabs.
+    /// </summary>
     [Parameter]
     public Type[]? AdditionalSources { get; set; }
 
+    /// <summary>
+    /// A heading for the example. Also used as the anchor target when
+    /// <see cref="Id"/> is set.
+    /// </summary>
+    [Parameter]
+    public string? Title { get; set; }
+
+    /// <summary>An element id, so the example can be linked to directly.</summary>
+    [Parameter]
+    public string? Id { get; set; }
+
+    /// <summary>Which pane is shown on first render.</summary>
+    [Parameter]
+    public ExampleMode DefaultMode { get; set; } = ExampleMode.Preview;
+
+    /// <summary>Whether to show the preview width controls.</summary>
+    [Parameter]
+    public bool ShowViewportControls { get; set; } = true;
+
+    /// <summary>Raised when the visitor switches pane.</summary>
+    [Parameter]
+    public EventCallback<ExampleMode> OnModeChanged { get; set; }
+
     private readonly Dictionary<string, string> _sourceFiles = [];
-    private string _mode = "preview";
+    private ExampleMode _mode;
+    private ExampleViewport _viewport = ExampleViewport.Full;
+    private bool _modeInitialized;
+
+    private string ModeValue => _mode.ToString().ToLowerInvariant();
+
+    private string ViewportValue =>
+        _viewport switch
+        {
+            ExampleViewport.Medium => "md",
+            ExampleViewport.Small => "sm",
+            _ => "full",
+        };
 
     protected override void OnInitialized()
     {
@@ -50,6 +129,64 @@
             }
         }
     }
+
+    protected override void OnParametersSet()
+    {
+        // Honour DefaultMode once, so a re-render does not undo the visitor's
+        // choice. Fall back to Preview when there is nothing to show.
+        if (_modeInitialized)
+        {
+            return;
+        }
+
+        _modeInitialized = true;
+        _mode = _sourceFiles.Count == 0 && DefaultMode == ExampleMode.Source
+            ? ExampleMode.Preview
+            : DefaultMode;
+    }
+
+    private async Task SetModeAsync(ExampleMode mode)
+    {
+        if (_mode == mode)
+        {
+            return;
+        }
+
+        _mode = mode;
+        await OnModeChanged.InvokeAsync(mode);
+    }
+
+    private static DocIconName IconFor(ExampleMode mode) =>
+        mode switch
+        {
+            ExampleMode.Source => DocIconName.Code,
+            ExampleMode.Split => DocIconName.Split,
+            _ => DocIconName.Eye,
+        };
+
+    private static string LabelFor(ExampleMode mode) =>
+        mode switch
+        {
+            ExampleMode.Source => "Source",
+            ExampleMode.Split => "Split",
+            _ => "Preview",
+        };
+
+    private static string ViewportLabel(ExampleViewport viewport) =>
+        viewport switch
+        {
+            ExampleViewport.Medium => "768",
+            ExampleViewport.Small => "375",
+            _ => "Full",
+        };
+
+    private static string ViewportTitle(ExampleViewport viewport) =>
+        viewport switch
+        {
+            ExampleViewport.Medium => "Clamp preview to 768px",
+            ExampleViewport.Small => "Clamp preview to 375px",
+            _ => "Full width",
+        };
 
     private void LoadSourceFiles(Type type)
     {

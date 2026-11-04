@@ -1,0 +1,147 @@
+@namespace Spillgebees.Blazor.Docs.Sdk
+@using Microsoft.JSInterop
+@typeparam TValue
+@inject IJSRuntime JS
+
+@* A themed listbox. Native <select> menus are drawn by the OS, so they ignore
+   the site's colours entirely and truncate long values; every dropdown in the
+   SDK uses this instead. Arrow keys, Home, End and Escape are handled by the
+   JS module, which moves focus between the options. *@
+<div class="docs-select @(_isOpen ? "docs-open" : "") @Class" @ref="@_rootRef">
+    <button type="button"
+            class="docs-select-trigger"
+            aria-haspopup="listbox"
+            aria-expanded="@(_isOpen ? "true" : "false")"
+            aria-label="@AriaLabel"
+            title="@SelectedLabel"
+            @onclick="@Toggle"
+            @ref="@_triggerRef">
+        @if (Icon is not null)
+        {
+            <DocIcon Name="@Icon.Value" />
+        }
+        <span class="docs-select-value">@SelectedLabel</span>
+        <DocIcon Name="@DocIconName.Chevron" />
+    </button>
+
+    @if (_isOpen)
+    {
+        <div class="docs-select-scrim" @onclick="@Close"></div>
+        <ul class="docs-select-menu" role="listbox" aria-label="@AriaLabel">
+            @foreach (var item in Items)
+            {
+                var candidate = item;
+                var isSelected = EqualityComparer<TValue>.Default.Equals(candidate, Value);
+
+                <li role="none">
+                    <button type="button"
+                            role="option"
+                            aria-selected="@(isSelected ? "true" : "false")"
+                            class="@(isSelected ? "docs-on" : null)"
+                            title="@LabelFor(candidate)"
+                            @onclick="@(() => SelectAsync(candidate))">
+                        <span class="docs-select-option-label">@LabelFor(candidate)</span>
+                        @if (isSelected)
+                        {
+                            <DocIcon Name="@DocIconName.Check" />
+                        }
+                    </button>
+                </li>
+            }
+        </ul>
+    }
+</div>
+
+@code {
+    /// <summary>The selectable values.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<TValue> Items { get; set; } = [];
+
+    /// <summary>The currently selected value.</summary>
+    [Parameter]
+    public TValue? Value { get; set; }
+
+    /// <summary>Raised with the newly selected value.</summary>
+    [Parameter]
+    public EventCallback<TValue> ValueChanged { get; set; }
+
+    /// <summary>
+    /// Renders an item's label. Defaults to <c>ToString()</c>.
+    /// </summary>
+    [Parameter]
+    public Func<TValue, string>? Label { get; set; }
+
+    /// <summary>An optional leading icon on the trigger.</summary>
+    [Parameter]
+    public DocIconName? Icon { get; set; }
+
+    /// <summary>Accessible name for the trigger and listbox.</summary>
+    [Parameter, EditorRequired]
+    public string AriaLabel { get; set; } = default!;
+
+    /// <summary>Extra class applied to the root, for sizing variants.</summary>
+    [Parameter]
+    public string? Class { get; set; }
+
+    private bool _isOpen;
+    private bool _focusMenu;
+    private bool _focusTrigger;
+    private ElementReference _rootRef;
+    private ElementReference _triggerRef;
+
+    private string SelectedLabel => Value is null ? "" : LabelFor(Value);
+
+    private string LabelFor(TValue item) => Label is not null ? Label(item) : item?.ToString() ?? "";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await InvokeSafelyAsync("bindSelect", _rootRef);
+        }
+
+        if (_focusMenu)
+        {
+            _focusMenu = false;
+            await InvokeSafelyAsync("openSelect", _rootRef);
+        }
+
+        if (_focusTrigger)
+        {
+            _focusTrigger = false;
+            await InvokeSafelyAsync("focusElement", _triggerRef);
+        }
+    }
+
+    private void Toggle()
+    {
+        _isOpen = !_isOpen;
+        _focusMenu = _isOpen;
+    }
+
+    private void Close()
+    {
+        _isOpen = false;
+        _focusTrigger = true;
+    }
+
+    private async Task SelectAsync(TValue item)
+    {
+        _isOpen = false;
+        _focusTrigger = true;
+        Value = item;
+        await ValueChanged.InvokeAsync(item);
+    }
+
+    private async ValueTask InvokeSafelyAsync(string method, params object?[] args)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync($"Spillgebees.DocsSdk.{method}", args);
+        }
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException)
+        {
+            // without the module the menu still works by pointer and Tab
+        }
+    }
+}

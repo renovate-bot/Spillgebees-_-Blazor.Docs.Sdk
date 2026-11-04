@@ -1,0 +1,48 @@
+// Control text metrics.
+//
+// Loaded last, deliberately.
+//
+// Body copy uses `line-height: 1.6`, which every control inherits. On a
+// single-line control that makes the text's line box far taller than the ink,
+// so flex centring aligns the *box* while the glyphs read as sitting low next
+// to an adjacent icon: the icon is sized to its own artwork, the text is not.
+//
+// Collapsing these to `line-height: 1` makes the text box hug the glyphs, so
+// `align-items: center` lines the ink up with the icon. Only controls that are
+// single-line by construction are listed; anything that wraps (navigation
+// links, on-this-page entries, table cells, prose) keeps a readable leading.
+
+.docs-brand-mark,
+.docs-brand-name,
+.docs-search-trigger,
+.docs-search-trigger-label,
+.docs-kbd,
+.docs-select-trigger,
+.docs-select-value,
+.docs-select-option-label,
+.docs-nav-group-label,
+.docs-toc-label,
+.docs-code-tab,
+.docs-code-lang,
+.docs-code-copy,
+.docs-example-title,
+.docs-example-seg button,
+.docs-example-viewports button,
+.docs-api-group-count,
+.docs-pager-dir,
+.docs-footer-row {
+  line-height: 1;
+}
+
+// Chips and badges carry descenders often enough that a bare 1 crowds them,
+// but they still need to be tighter than body copy.
+.docs-chip,
+.docs-badge {
+  line-height: 1.15;
+}
+
+// The emoji brand mark is a glyph in a fixed box; without this it inherits the
+// prose leading and sits off-centre inside its border.
+.docs-brand-mark {
+  font-size: var(--docs-text-md);
+}

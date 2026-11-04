@@ -6,9 +6,39 @@
     <title>Blazor.Docs.Sdk Demo</title>
     <base href="/" />
     <link rel="stylesheet" href="_content/Spillgebees.Blazor.Docs.Sdk/docs-sdk.css" />
+    <style>
+        /* demo samples use plain buttons; give them the site's colours */
+        .docs-example-stage button {
+            padding: 6px 12px;
+            font: inherit;
+            font-size: var(--docs-text-sm);
+            color: var(--docs-text);
+            background: var(--docs-surface-2);
+            border: 1px solid var(--docs-line);
+            border-radius: var(--docs-radius-sm);
+            cursor: pointer;
+        }
+
+        .docs-example-stage button:hover {
+            border-color: var(--docs-accent);
+        }
+    </style>
 </head>
 <body>
     <div id="app">Loading...</div>
+    <script>
+        // Demo-only: lets automated screenshots request a theme/scheme up front,
+        // e.g. ?theme=terminal&scheme=light. Not part of the SDK.
+        (() => {
+            const q = new URLSearchParams(location.search);
+            const theme = q.get("theme");
+            const scheme = q.get("scheme");
+            try {
+                if (theme) localStorage.setItem("spillgebees-docs-theme", theme);
+                if (scheme) localStorage.setItem("spillgebees-docs-scheme", scheme);
+            } catch { /* storage unavailable */ }
+        })();
+    </script>
     <script src="_framework/blazor.webassembly.js"></script>
 </body>
 </html>

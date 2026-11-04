@@ -1,17 +1,16 @@
 @page "/components/theme-toggle"
 
 <Breadcrumb Section="components" PageName="ThemeToggle"
-            ApiReferenceUrl="api/ThemeToggle"
+            ApiReferenceUrl='@DocsApiLinks.For("ThemeToggle")'
             SourceUrl="https://github.com/Spillgebees/Blazor.Docs.Sdk/blob/main/src/Spillgebees.Blazor.Docs.Sdk/Components/ThemeToggle.razor" />
-<OnThisPage />
 
 <h1>ThemeToggle</h1>
 <p>Dark/light mode toggle button that persists the user preference to <code>localStorage</code>.</p>
 
-<h2 id="automatic_inclusion">// automatic_inclusion</h2>
+<h2 id="automatic_inclusion">Automatic inclusion</h2>
 <p><code>ThemeToggle</code> is fully self-contained and included automatically by <code>DocSite</code> in the top bar. You do not need to add it manually.</p>
 
-<h2 id="standalone_usage">// standalone_usage</h2>
+<h2 id="standalone_usage">Standalone usage</h2>
 <p>If you need <code>ThemeToggle</code> outside of <code>DocSite</code>, you can render it directly anywhere in the component tree.</p>
 
 <CodeBlock Files="@_usage" Language="razor" />

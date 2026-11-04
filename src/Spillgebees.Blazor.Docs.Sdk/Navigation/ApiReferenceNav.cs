@@ -22,7 +22,7 @@ public static class ApiReferenceNav
     /// </returns>
     public static IReadOnlyList<NavPage> FromManifest(ApiManifest manifest) =>
         manifest
-            .Types.Select(t => new NavPage(t.Name, $"api/{GetRouteValue(t)}"))
+            .Types.Select(t => new NavPage(t.Name, $"api/{GetRouteValue(t)}", DocSearchEntryKind.Type))
             .OrderBy(p => p.Title, StringComparer.Ordinal)
             .ToList();
 

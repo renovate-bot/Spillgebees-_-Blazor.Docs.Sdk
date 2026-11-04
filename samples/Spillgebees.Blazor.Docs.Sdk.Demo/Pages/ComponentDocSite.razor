@@ -1,19 +1,18 @@
 @page "/components/doc-site"
 
 <Breadcrumb Section="components" PageName="DocSite"
-            ApiReferenceUrl="api/DocSite"
+            ApiReferenceUrl='@DocsApiLinks.For("DocSite")'
             SourceUrl="https://github.com/Spillgebees/Blazor.Docs.Sdk/blob/main/src/Spillgebees.Blazor.Docs.Sdk/Components/DocSite.razor" />
-<OnThisPage />
 
 <h1>DocSite</h1>
 <p>Root layout component that wraps the entire docs site with a top bar, sidebar, content area, and footer.</p>
 
-<h2 id="basic_usage">// basic_usage</h2>
+<h2 id="basic_usage">Basic usage</h2>
 <p>Replace the contents of <code>MainLayout.razor</code> with a <code>DocSite</code> wrapper, passing your navigation structure and project metadata.</p>
 
 <CodeBlock Files="@_basicUsage" Language="razor" />
 
-<h2 id="navigation_structure">// navigation_structure</h2>
+<h2 id="navigation_structure">Navigation structure</h2>
 <p>Navigation is defined as an array of <code>NavSection</code> records, each containing a list of <code>NavPage</code> entries. Sections appear as labeled groups in the sidebar.</p>
 
 <CodeBlock Files="@_navStructure" Language="csharp" />

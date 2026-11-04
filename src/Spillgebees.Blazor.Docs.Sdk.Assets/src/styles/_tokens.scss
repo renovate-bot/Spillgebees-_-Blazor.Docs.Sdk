@@ -1,0 +1,94 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Design token contract: the public theming API of this package.
+//
+// Every rule in _base, _chrome, _content and _widgets reads from these custom
+// properties and contains no literal colour, font, radius or shadow value. A
+// theme is therefore *only* a block that redefines these tokens, which is what
+// makes both the built-in themes and consumer-authored themes possible.
+//
+// A theme is selected by two independent attributes on <html>:
+//
+//   data-docs-theme="refined"     the palette + type family
+//   data-docs-scheme="dark"       the colour scheme (light | dark)
+//
+// Consumers author a custom theme by defining both scheme blocks for their own
+// theme name and passing DocsTheme.Custom("name") to <DocSite>:
+//
+//   [data-docs-theme="acme"][data-docs-scheme="dark"]  { --docs-bg: …; }
+//   [data-docs-theme="acme"][data-docs-scheme="light"] { --docs-bg: …; }
+//
+// `docs-sdk-theme-template.css` in this package's wwwroot is a copy-paste
+// starting point listing every token with its default.
+//
+// ── A note on accent naming ──────────────────────────────────────────────────
+// Accent steps are named for *contrast*, not lightness: `--docs-accent-strong`
+// is always the step with more contrast against `--docs-bg` than
+// `--docs-accent`, which means it is lighter in dark schemes and darker in
+// light schemes. Naming these `-bright`/`-dim` is what causes light schemes to
+// silently ship 2.7:1 links, because the name stops matching the intent when
+// the background flips.
+// ─────────────────────────────────────────────────────────────────────────────
+
+:root {
+  // ── Typography ────────────────────────────────────────────────────────── //
+
+  --docs-font-display: "Schibsted Grotesk Variable", "Schibsted Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --docs-font-sans: "Hanken Grotesk Variable", "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --docs-font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --docs-text-2xs: 0.68rem;
+  --docs-text-xs: 0.75rem;
+  --docs-text-sm: 0.82rem;
+  --docs-text-md: 0.9rem;
+  --docs-text-lg: 1rem;
+  --docs-text-xl: 1.13rem;
+  --docs-text-2xl: 1.3rem;
+  --docs-text-3xl: 1.55rem;
+  --docs-text-4xl: clamp(2.1rem, 4.2vw, 2.9rem);
+
+  --docs-leading-tight: 1.2;
+  --docs-leading-body: 1.6;
+  --docs-tracking-tight: -0.02em;
+  --docs-tracking-wide: 0.09em;
+
+  // ── Space ─────────────────────────────────────────────────────────────── //
+
+  --docs-space-1: 0.25rem;
+  --docs-space-2: 0.4rem;
+  --docs-space-3: 0.6rem;
+  --docs-space-4: 0.85rem;
+  --docs-space-5: 1.1rem;
+  --docs-space-6: 1.4rem;
+  --docs-space-8: 1.8rem;
+  --docs-space-10: 2.2rem;
+  --docs-space-12: 2.8rem;
+  --docs-space-16: 3.5rem;
+
+  // ── Radius ────────────────────────────────────────────────────────────── //
+
+  --docs-radius-xs: 5px;
+  --docs-radius-sm: 7px;
+  --docs-radius-md: 11px;
+  --docs-radius-lg: 16px;
+  --docs-radius-pill: 99px;
+
+  // ── Motion ────────────────────────────────────────────────────────────── //
+
+  --docs-duration-fast: 0.12s;
+  --docs-duration-base: 0.16s;
+  --docs-ease: cubic-bezier(0.2, 0, 0, 1);
+
+  // ── Layout ────────────────────────────────────────────────────────────── //
+
+  --docs-topbar-height: 60px;
+  --docs-sidebar-width: 248px;
+  --docs-toc-width: 210px;
+  --docs-content-width: 760px;
+  --docs-page-max: 1480px;
+  --docs-example-split-max-height: 22rem;
+}
+
+// Colour tokens are supplied by the theme files in `themes/`. `refined` is
+// applied to bare `:root` as well as to its own selector, so it doubles as the
+// fallback: a custom theme that overrides only some tokens still renders.
+

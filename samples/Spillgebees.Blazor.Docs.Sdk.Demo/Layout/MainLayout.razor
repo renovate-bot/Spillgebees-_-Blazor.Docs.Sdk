@@ -1,9 +1,13 @@
 @inherits LayoutComponentBase
 
+@* The demo enables the theme picker so every built-in theme is switchable at
+   runtime. A real docs site would usually pin a single theme instead. *@
 <DocSite ProjectName="Blazor.Docs.Sdk"
          LogoEmoji="🍓"
          GitHubUrl="https://github.com/Spillgebees/Blazor.Docs.Sdk"
-         Navigation="@Navigation">
+         Navigation="@Navigation"
+         Theme="@DocsTheme.Refined"
+         ShowThemePicker="true">
     @Body
 </DocSite>
 
@@ -21,6 +25,7 @@
             new NavPage("ApiDoc", "components/api-doc"),
             new NavPage("ThemeToggle", "components/theme-toggle"),
         ]),
-        new("API Reference", ApiReferenceNav.Generate<DocSite>()),
+        // generated and long, so it starts collapsed and is reachable via search
+        NavSection.Collapsed("API Reference", ApiReferenceNav.Generate<DocSite>()),
     ];
 }

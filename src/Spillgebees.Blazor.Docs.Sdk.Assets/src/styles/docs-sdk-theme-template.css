@@ -1,0 +1,197 @@
+/* ===========================================================================
+ * Spillgebees.Blazor.Docs.Sdk: custom theme template
+ * ===========================================================================
+ *
+ * Copy this file into your docs project's wwwroot, rename it, change the theme
+ * name in the selectors, and reference it from index.html *after* the SDK
+ * stylesheet:
+ *
+ *   <link rel="stylesheet" href="_content/Spillgebees.Blazor.Docs.Sdk/docs-sdk.css" />
+ *   <link rel="stylesheet" href="css/acme-theme.css" />
+ *
+ * Then select it:
+ *
+ *   <DocSite Theme="@DocsTheme.Custom("acme")" ... />
+ *
+ * You only need to define the tokens you want to change; anything you omit
+ * falls back to the built-in `refined` values.
+ *
+ * ── The one rule that matters ───────────────────────────────────────────────
+ * Accent steps are named for CONTRAST, not lightness:
+ *
+ *   --docs-accent-strong  must have MORE contrast against --docs-bg than
+ *                         --docs-accent  (so: lighter on dark, DARKER on light)
+ *   --docs-accent-muted   must have LESS contrast; decorative marks only
+ *
+ * `--docs-accent-strong` is used for links, active navigation, inline code and
+ * required badges. If you make it the lightest step in your light scheme, those
+ * all silently drop below 4.5:1.
+ * =========================================================================== */
+
+/* ── Structural tokens (shared by both schemes) ──────────────────────────── */
+
+/* Line numbers are on by default. To turn them off for your theme, add:
+     [data-docs-theme="acme"] .docs-code-gutter { display: none; }
+   Soft wrap is a visitor preference (the toggle in each code block's bar) and
+   is stored per site, so it needs nothing here. */
+
+[data-docs-theme="acme"] {
+  --docs-font-display: "Your Display Face", ui-sans-serif, system-ui, sans-serif;
+  --docs-font-sans: "Your Body Face", ui-sans-serif, system-ui, sans-serif;
+  --docs-font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+
+  /* type scale */
+  --docs-text-2xs: 0.68rem;
+  --docs-text-xs: 0.75rem;
+  --docs-text-sm: 0.82rem;
+  --docs-text-md: 0.9rem;
+  --docs-text-lg: 1rem;
+  --docs-text-xl: 1.13rem;
+  --docs-text-2xl: 1.3rem;
+  --docs-text-3xl: 1.55rem;
+  --docs-text-4xl: clamp(2.1rem, 4.2vw, 2.9rem);
+
+  --docs-leading-tight: 1.2;
+  --docs-leading-body: 1.6;
+  --docs-tracking-tight: -0.02em;
+  --docs-tracking-wide: 0.09em;
+
+  /* space scale */
+  --docs-space-1: 0.25rem;
+  --docs-space-2: 0.4rem;
+  --docs-space-3: 0.6rem;
+  --docs-space-4: 0.85rem;
+  --docs-space-5: 1.1rem;
+  --docs-space-6: 1.4rem;
+  --docs-space-8: 1.8rem;
+  --docs-space-10: 2.2rem;
+  --docs-space-12: 2.8rem;
+  --docs-space-16: 3.5rem;
+
+  --docs-radius-xs: 5px;
+  --docs-radius-sm: 7px;
+  --docs-radius-md: 11px;
+  --docs-radius-lg: 16px;
+  --docs-radius-pill: 99px;
+
+  --docs-duration-fast: 0.12s;
+  --docs-duration-base: 0.16s;
+  --docs-ease: cubic-bezier(0.2, 0, 0, 1);
+
+  --docs-topbar-height: 60px;
+  --docs-sidebar-width: 248px;
+  --docs-toc-width: 210px;
+  --docs-content-width: 760px;
+  --docs-page-max: 1480px;
+  --docs-example-split-max-height: 22rem; /* preview height in split mode */
+
+}
+
+/* ── Dark scheme ─────────────────────────────────────────────────────────── */
+
+[data-docs-theme="acme"][data-docs-scheme="dark"] {
+  color-scheme: dark;
+
+  /* surfaces, from page background up to the most raised layer */
+  --docs-bg: #131210;
+  --docs-surface-1: #1a1814;
+  --docs-surface-2: #201d18;
+  --docs-surface-3: #29251e;
+  --docs-well: #0f0e0b; /* recessed: code gutters, segmented controls */
+
+  /* --docs-line-strong is used for control boundaries: keep it >= 3:1 on bg */
+  --docs-line: #2c281f;
+  --docs-line-soft: #221e18;
+  --docs-line-strong: #565040;
+
+  /* text: 1 is primary, 4 is the dimmest. All should clear 4.5:1 on --docs-bg */
+  --docs-text: #ece6da;
+  --docs-text-2: #bbb3a3;
+  --docs-text-3: #a29a89;
+  --docs-text-4: #948c79;
+  --docs-label: #aaa18e;
+
+  --docs-accent: #d8a44a;
+  --docs-accent-strong: #ecc06f; /* lighter than accent on a dark scheme */
+  --docs-accent-muted: #a87d2f;
+  --docs-accent-wash: rgb(216 164 74 / 11%);
+  --docs-accent-line: rgb(216 164 74 / 26%);
+  --docs-accent-contrast: #131210; /* text drawn ON a solid accent fill */
+
+  --docs-success: #7bbf83;
+  --docs-warning: #e0a458;
+  --docs-danger: #e08a72;
+
+  --docs-shadow-sm: 0 1px 2px rgb(0 0 0 / 35%);
+  --docs-shadow-md: 0 10px 28px -12px rgb(0 0 0 / 55%);
+  --docs-shadow-lg: 0 28px 60px -22px rgb(0 0 0 / 70%);
+  --docs-scrim: rgb(10 9 7 / 55%); /* dims the page behind search and the drawer */
+  --docs-selection: rgb(216 164 74 / 34%); /* selected text */
+
+  --docs-syn-tag: #97c98a;
+  --docs-syn-attr: #ecc06f;
+  --docs-syn-string: #d9b986;
+  --docs-syn-keyword: #e08a72;
+  --docs-syn-comment: #948c79;
+  --docs-syn-number: #b8c8e8;
+  --docs-syn-title: #cbb2e8;
+  --docs-syn-meta: #d9b986;
+}
+
+/* ── Light scheme ────────────────────────────────────────────────────────── */
+
+[data-docs-theme="acme"][data-docs-scheme="light"] {
+  color-scheme: light;
+
+  --docs-bg: #f6f3ea;
+  --docs-surface-1: #fcfaf3;
+  --docs-surface-2: #ffffff;
+  --docs-surface-3: #efe9da;
+  --docs-well: #ece5d4;
+
+  --docs-line: #ded5bf;
+  --docs-line-soft: #e8e0cd;
+  --docs-line-strong: #93876c;
+
+  --docs-text: #221e16;
+  --docs-text-2: #4b4437;
+  --docs-text-3: #5d5646;
+  --docs-text-4: #635b4b;
+  --docs-label: #5d5646;
+
+  --docs-accent: #8a641b;
+  --docs-accent-strong: #63460f; /* DARKER than accent on a light scheme */
+  --docs-accent-muted: #a8823a;
+  --docs-accent-wash: rgb(138 100 27 / 10%);
+  --docs-accent-line: rgb(138 100 27 / 32%);
+  --docs-accent-contrast: #fffdf8;
+
+  --docs-success: #2c6539;
+  --docs-warning: #7d4c0d;
+  --docs-danger: #98351f;
+
+  --docs-shadow-sm: 0 1px 2px rgb(80 60 20 / 6%);
+  --docs-shadow-md: 0 10px 28px -14px rgb(90 70 30 / 20%);
+  --docs-shadow-lg: 0 28px 56px -22px rgb(90 70 30 / 26%);
+  --docs-scrim: rgb(34 30 22 / 40%);
+  --docs-selection: rgb(138 100 27 / 26%);
+
+  --docs-syn-tag: #35601d;
+  --docs-syn-attr: #7d5a15;
+  --docs-syn-string: #6d5012;
+  --docs-syn-keyword: #9c3325;
+  --docs-syn-comment: #635b4b;
+  --docs-syn-number: #23407a;
+  --docs-syn-title: #572e94;
+  --docs-syn-meta: #6d5012;
+}
+
+/* ── Optional: treatments beyond tokens ──────────────────────────────────── *
+ * Tokens cover colour, type and metrics. If you want to change component
+ * anatomy, target the documented class names, e.g.:
+ *
+ *   [data-docs-theme="acme"] .docs-nav-group-label::before { content: "// "; }
+ *   [data-docs-theme="acme"] .docs-prose h2 { text-transform: lowercase; }
+ *
+ * See the `terminal` built-in theme for a worked example.
+ * =========================================================================== */

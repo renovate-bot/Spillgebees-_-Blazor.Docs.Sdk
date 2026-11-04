@@ -1,49 +1,405 @@
-@* src/Spillgebees.Blazor.Docs.Sdk/Components/DocSite.razor *@
 @namespace Spillgebees.Blazor.Docs.Sdk
+@using Microsoft.AspNetCore.Components.Routing
+@using Microsoft.JSInterop
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+@inject NavigationManager NavigationManager
 
-<div class="doc-site">
-    <header class="doc-topbar">
-        <button class="doc-hamburger" @onclick="@ToggleMobileSidebar" aria-label="Toggle navigation">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
-                 fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="3" y1="6" x2="21" y2="6"/>
-                <line x1="3" y1="12" x2="21" y2="12"/>
-                <line x1="3" y1="18" x2="21" y2="18"/>
-            </svg>
-        </button>
-        <span class="doc-topbar-logo">
-            <span role="img">@LogoEmoji</span>
-            <span class="doc-topbar-project-name">@ProjectName</span>
-        </span>
-        <ThemeToggle />
-    </header>
+<a class="docs-skip" href="#docs-main">Skip to content</a>
 
-    <div class="doc-body @(_mobileSidebarOpen ? "sidebar-open" : "")">
-        <DocSidebar Navigation="@Navigation" GitHubUrl="@GitHubUrl" />
+<CascadingValue Name="@ChromeRevisionName" Value="@_chromeRevision">
+<header class="docs-topbar">
+    <button type="button"
+            class="docs-icon-btn docs-hamburger"
+            @onclick="@ToggleDrawerAsync"
+            aria-label="@(_drawerOpen ? "Close navigation" : "Open navigation")"
+            aria-expanded="@(_drawerOpen ? "true" : "false")"
+            aria-controls="docs-sidebar">
+        <DocIcon Name="@(_drawerOpen ? DocIconName.Close : DocIconName.Menu)" />
+    </button>
 
-        <main class="doc-content">
+    <a class="docs-brand" href="@BaseHref">
+        <span class="docs-brand-mark" role="img" aria-hidden="true">@LogoEmoji</span>
+        <span class="docs-brand-name">@ProjectName</span>
+    </a>
+
+    @if (TopNavigation is not null)
+    {
+        <nav class="docs-topnav" aria-label="Site">@TopNavigation</nav>
+    }
+
+    <span class="docs-topbar-spacer"></span>
+
+    <button type="button" class="docs-search-trigger" @onclick="@OpenSearchAsync" aria-label="Search documentation">
+        <DocIcon Name="@DocIconName.Search" />
+        <span class="docs-search-trigger-label">Search</span>
+        <kbd class="docs-kbd">@_shortcutLabel</kbd>
+    </button>
+
+    @if (Versions.Count > 0)
+    {
+        <DocSelect TValue="string" Class="docs-version-select" Items="@Versions" Value="@CurrentVersion"
+                               Icon="@DocIconName.Tag" AriaLabel="Version" ValueChanged="@OnVersionSelected" />
+    }
+
+    @if (ShowThemePicker)
+    {
+        <ThemePicker Themes="@AvailableThemes" DefaultTheme="@Theme" OnThemeChanged="@OnChromeChanged" />
+    }
+
+    <ThemeToggle OnSchemeChanged="@OnChromeChanged" />
+
+</header>
+
+<div class="docs-backdrop" @onclick="@CloseDrawerAsync"></div>
+
+<div class="docs-layout">
+    <aside class="docs-sidebar" id="docs-sidebar">
+        <nav aria-label="Documentation">
+            @foreach (var section in Navigation)
+            {
+                var expanded = IsSectionExpanded(section);
+                var sectionKey = section.Title;
+
+                <div class="docs-nav-group" data-docs-expanded="@(expanded ? "true" : "false")">
+                    @if (section.Collapsible)
+                    {
+                        <button type="button"
+                                class="docs-nav-group-label docs-nav-group-toggle"
+                                aria-expanded="@(expanded ? "true" : "false")"
+                                @onclick="@(() => ToggleSection(sectionKey))">
+                            <DocIcon Name="@DocIconName.Chevron" />
+                            <span class="docs-nav-group-name">@section.Title</span>
+                        </button>
+                    }
+                    else
+                    {
+                        <p class="docs-nav-group-label"><span class="docs-nav-group-name">@section.Title</span></p>
+                    }
+
+                    @if (expanded)
+                    {
+                        <ul>
+                            @foreach (var navPage in section.Pages)
+                            {
+                                var isActive = IsActive(navPage.Href);
+                                var linkClass = isActive ? "docs-on" : null;
+                                var current = isActive ? "page" : null;
+
+                                <li>
+                                    <a href="@navPage.Href"
+                                       title="@navPage.Title"
+                                       class="@linkClass"
+                                       aria-current="@current"
+                                       @onclick="@CloseDrawerAsync">
+                                        <span class="docs-dot" aria-hidden="true"></span>
+                                        <span>@navPage.Title</span>
+                                    </a>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
+            }
+        </nav>
+
+        @* Chrome dropped from the top bar on small screens reappears here
+           rather than becoming unreachable. Both copies read their state from
+           the same persisted preference, so they stay in step. *@
+        <div class="docs-drawer-actions">
+            @if (ShowThemePicker)
+            {
+                <div class="docs-drawer-action">
+                    <span>Theme</span>
+                    <ThemePicker Themes="@AvailableThemes" DefaultTheme="@Theme" OnThemeChanged="@OnChromeChanged" />
+                </div>
+            }
+            <div class="docs-drawer-action">
+                <span>Colour scheme</span>
+                <ThemeToggle OnSchemeChanged="@OnChromeChanged" />
+            </div>
+            @if (Versions.Count > 0)
+            {
+                <div class="docs-drawer-action">
+                    <span>Version</span>
+                    <DocSelect TValue="string" Class="docs-version-select" Items="@Versions" Value="@CurrentVersion"
+                               Icon="@DocIconName.Tag" AriaLabel="Version" ValueChanged="@OnVersionSelected" />
+                </div>
+            }
+        </div>
+
+        <DocFooter GitHubUrl="@GitHubUrl" />
+    </aside>
+
+    <main class="docs-content" id="docs-main" tabindex="-1">
+        <div class="docs-content-inner">
+            @* Narrow viewports get the section list above the content, where it
+               is useful, rather than stranded below it. *@
+            <OnThisPage Placement="@OnThisPagePlacement.Inline" />
             @ChildContent
-        </main>
-    </div>
+        </div>
+    </main>
+
+    <OnThisPage Placement="@OnThisPagePlacement.Rail" />
 </div>
+</CascadingValue>
+
+<DocSearch @ref="@_search" Entries="@SearchEntries" />
 
 @code {
+    internal const string ChromeRevisionName = "DocsChromeRevision";
+
+    /// <summary>The library name shown in the top bar.</summary>
     [Parameter, EditorRequired]
     public string ProjectName { get; set; } = default!;
 
+    /// <summary>The emoji used as the brand mark.</summary>
     [Parameter, EditorRequired]
     public string LogoEmoji { get; set; } = default!;
 
+    /// <summary>The repository URL. Must be http or https.</summary>
     [Parameter, EditorRequired]
     public string GitHubUrl { get; set; } = default!;
 
+    /// <summary>The sidebar navigation.</summary>
     [Parameter, EditorRequired]
     public IReadOnlyList<NavSection> Navigation { get; set; } = [];
 
+    /// <summary>The page body.</summary>
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
 
-    private bool _mobileSidebarOpen;
+    /// <summary>Optional links rendered in the top bar next to the brand.</summary>
+    [Parameter]
+    public RenderFragment? TopNavigation { get; set; }
 
-    private void ToggleMobileSidebar() => _mobileSidebarOpen = !_mobileSidebarOpen;
+    /// <summary>
+    /// The theme applied when the visitor has not chosen one. Defaults to
+    /// <see cref="DocsTheme.Refined"/>.
+    /// </summary>
+    [Parameter]
+    public DocsTheme Theme { get; set; } = DocsTheme.Refined;
+
+    /// <summary>
+    /// The themes offered by the picker. Defaults to
+    /// <see cref="DocsTheme.BuiltIn"/>.
+    /// </summary>
+    [Parameter]
+    public IReadOnlyList<DocsTheme> AvailableThemes { get; set; } = DocsTheme.BuiltIn;
+
+    /// <summary>
+    /// Whether visitors may switch themes. When <see langword="false"/> the
+    /// site is pinned to <see cref="Theme"/>.
+    /// </summary>
+    [Parameter]
+    public bool ShowThemePicker { get; set; }
+
+    /// <summary>
+    /// Extra search entries appended to those derived from
+    /// <see cref="Navigation"/>.
+    /// </summary>
+    [Parameter]
+    public IReadOnlyList<DocSearchEntry> AdditionalSearchEntries { get; set; } = [];
+
+    /// <summary>Versions offered in the top bar. Empty hides the selector.</summary>
+    [Parameter]
+    public IReadOnlyList<string> Versions { get; set; } = [];
+
+    /// <summary>The currently selected version.</summary>
+    [Parameter]
+    public string? CurrentVersion { get; set; }
+
+    /// <summary>Raised when the visitor selects a different version.</summary>
+    [Parameter]
+    public EventCallback<string> OnVersionChanged { get; set; }
+
+    private readonly HashSet<string> _toggledSections = [];
+
+    private DocSearch? _search;
+    private DotNetObjectReference<DocSite>? _selfRef;
+    private bool _drawerOpen;
+    private bool _closeDrawerAfterRender;
+    private int _chromeRevision;
+    private string _shortcutLabel = "Ctrl K";
+
+    private string BaseHref => NavigationManager.BaseUri;
+
+    private IReadOnlyList<DocSearchEntry> SearchEntries =>
+        [.. DocSearchEntry.FromNavigation(Navigation), .. AdditionalSearchEntries];
+
+    protected override void OnInitialized() => NavigationManager.LocationChanged += OnLocationChanged;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_closeDrawerAfterRender)
+        {
+            _closeDrawerAfterRender = false;
+            await InvokeSafelyAsync("setNavOpen", false, _selfRef);
+        }
+
+        if (!firstRender)
+        {
+            return;
+        }
+
+        string[]? allowedThemes = ShowThemePicker
+            ? [.. AvailableThemes.Select(theme => theme.Name).Append(Theme.Name).Distinct()]
+            : null;
+        await InvokeSafelyAsync("initializeTheming", Theme.Name, allowedThemes);
+
+        // The visitor's platform is only known in the browser; on Server the
+        // runtime would report the host's.
+        try
+        {
+            _shortcutLabel = await JS.InvokeAsync<string>("Spillgebees.DocsSdk.getShortcutLabel");
+        }
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException)
+        {
+            // keep the default label
+        }
+
+        // The theme controls rendered before the stored theme was validated.
+        _chromeRevision++;
+        StateHasChanged();
+    }
+
+    // Following a search result, or any link outside the drawer, changes the
+    // page without going through a drawer link, so close it here too. The JS
+    // side catches up in OnAfterRenderAsync.
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs args)
+    {
+        if (_drawerOpen)
+        {
+            _drawerOpen = false;
+            _closeDrawerAfterRender = true;
+        }
+
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Re-renders the shell after a theme or scheme change. The top bar and the
+    /// mobile drawer each render their own copy of these controls; re-rendering
+    /// both makes the hidden one re-read the stored preference so the two never
+    /// drift apart across a viewport change.
+    /// </summary>
+    private void OnChromeChanged<T>(T _) => _chromeRevision++;
+
+    /// <summary>
+    /// A collapsible section is expanded when its configured state has been
+    /// flipped by the visitor, or when it contains the current page. Following
+    /// a search result into a collapsed section should not hide where you are.
+    /// </summary>
+    private bool IsSectionExpanded(NavSection section)
+    {
+        if (!section.Collapsible)
+        {
+            return true;
+        }
+
+        if (section.Pages.Any(page => IsActive(page.Href)))
+        {
+            return true;
+        }
+
+        var flipped = _toggledSections.Contains(section.Title);
+        return section.InitiallyExpanded ? !flipped : flipped;
+    }
+
+    private void ToggleSection(string title)
+    {
+        if (!_toggledSections.Add(title))
+        {
+            _toggledSections.Remove(title);
+        }
+    }
+
+    private bool IsActive(string href)
+    {
+        var relativePath = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        var queryIndex = relativePath.IndexOfAny(['?', '#']);
+        if (queryIndex >= 0)
+        {
+            relativePath = relativePath[..queryIndex];
+        }
+
+        return string.Equals(relativePath, href.TrimStart('/'), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task OpenSearchAsync()
+    {
+        if (_search is not null)
+        {
+            await _search.OpenAsync();
+        }
+    }
+
+    private async Task ToggleDrawerAsync() => await SetDrawerAsync(!_drawerOpen);
+
+    private async Task CloseDrawerAsync()
+    {
+        if (_drawerOpen)
+        {
+            await SetDrawerAsync(false);
+        }
+    }
+
+    private async Task SetDrawerAsync(bool open)
+    {
+        _drawerOpen = open;
+        _selfRef ??= DotNetObjectReference.Create(this);
+        await InvokeSafelyAsync("setNavOpen", open, _selfRef);
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Closes the drawer on Escape, or when the window widens past the drawer
+    /// breakpoint. Invoked from JavaScript.
+    /// </summary>
+    [JSInvokable]
+    public async Task CloseDrawerFromScript() => await CloseDrawerAsync();
+
+    private async Task OnVersionSelected(string version)
+    {
+        if (!string.IsNullOrEmpty(version))
+        {
+            await OnVersionChanged.InvokeAsync(version);
+        }
+    }
+
+    private async ValueTask InvokeSafelyAsync(string method, params object?[] args)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync($"Spillgebees.DocsSdk.{method}", args);
+        }
+        catch (JSException)
+        {
+            // module not loaded (prerender, or bUnit's default JS runtime)
+        }
+        catch (JSDisconnectedException)
+        {
+            // the circuit is gone, e.g. the visitor closed the tab
+        }
+        catch (InvalidOperationException)
+        {
+            // JS interop unavailable during prerendering
+        }
+        catch (TaskCanceledException)
+        {
+            // circuit torn down mid-call
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        NavigationManager.LocationChanged -= OnLocationChanged;
+
+        if (_drawerOpen)
+        {
+            await InvokeSafelyAsync("setNavOpen", false, null);
+        }
+
+        _selfRef?.Dispose();
+    }
 }

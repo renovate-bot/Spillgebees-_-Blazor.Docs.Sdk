@@ -1,24 +1,23 @@
 @page "/components/api-doc"
 
 <Breadcrumb Section="components" PageName="ApiDoc"
-            ApiReferenceUrl="api/ApiDoc"
+            ApiReferenceUrl='@DocsApiLinks.For("ApiDoc")'
             SourceUrl="https://github.com/Spillgebees/Blazor.Docs.Sdk/blob/main/src/Spillgebees.Blazor.Docs.Sdk/Components/ApiDoc.razor" />
-<OnThisPage />
 
 <h1>ApiDoc</h1>
 <p>Renders auto-generated API documentation for a type, showing properties, methods, events, and enum values.</p>
 
-<h2 id="resolve_by_type">// resolve_by_type</h2>
+<h2 id="resolve_by_type">Resolve by type</h2>
 <p>Pass a <code>System.Type</code> to look up the generated API manifest embedded in the assembly at build time.</p>
 
 <CodeBlock Files="@_byType" Language="razor" />
 
-<h2 id="resolve_by_type_info">// resolve_by_type_info</h2>
+<h2 id="resolve_by_type_info">Resolve by type info</h2>
 <p>Supply a pre-loaded <code>ApiTypeInfo</code> directly when you have already fetched or constructed the metadata.</p>
 
 <CodeBlock Files="@_byTypeInfo" Language="razor" />
 
-<h2 id="api_reference_page_pattern">// api_reference_page_pattern</h2>
+<h2 id="api_reference_page_pattern">Api reference page pattern</h2>
 <p>The typical pattern is a routed page that maps a URL segment to a type and renders <code>ApiDoc</code> conditionally.</p>
 
 <CodeBlock Files="@_apiPage" Language="razor" />

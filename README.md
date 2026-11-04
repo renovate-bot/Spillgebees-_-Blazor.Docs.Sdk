@@ -7,13 +7,16 @@ A Razor Class Library NuGet package for building and deploying documentation sit
 
 ## Features
 
-- Shell layout with collapsible sidebar, top bar, and footer
-- Dark/light theme toggle with `localStorage` persistence
-- Live component rendering alongside syntax-highlighted source code via `ExampleView`
-- Auto-generated API reference pages from Roslyn API manifests, decorated with XML doc comments
-- Build-time source extraction and API manifest generation via MSBuild targets (runs automatically for direct package consumers)
-- Sticky on-page navigation and sidebar links that wrap long component/type names
-- Self-hosted Inter Variable and JetBrains Mono fonts
+- Shell layout: top bar, sidebar, mobile drawer, sticky on-this-page rail with scroll spy, footer
+- Command palette search (`Ctrl`/`Cmd` + `K`, or `/`) over pages and API types
+- Three built-in themes plus a documented token contract for authoring your own
+- Colour scheme preference (system / light / dark) with `localStorage` persistence
+- Live component rendering alongside extracted source via `ExampleView`, with
+  preview / source / split modes and 375px / 768px viewport clamps
+- Auto-generated API reference from Roslyn API manifests, with member filtering,
+  collapsible groups and deep-linkable anchors
+- Build-time source extraction and API manifest generation via MSBuild targets
+- Self-hosted fonts only, with no third-party CDN request at runtime
 - Reusable GitHub Actions workflow for deploying to GitHub Pages
 
 ## Package Sources
@@ -92,13 +95,107 @@ Use `DocsApi="true"` only on the library whose public API should appear in the A
 
 | Component | Description |
 |-----------|-------------|
-| `DocSite` | Root layout component wrapping the entire app with sidebar, top bar, and footer |
-| `ExampleView` | Renders a live Blazor component alongside its build-time-extracted, syntax-highlighted source code |
-| `CodeBlock` | Displays a syntax-highlighted code snippet with a copy-to-clipboard button |
-| `ApiDoc` | Auto-generated API documentation page for a type, sourced from XML doc comments and reflection |
-| `ThemeToggle` | Switches between dark and light mode and persists the preference to `localStorage` |
-| `DocSidebar` | Collapsible navigation sidebar driven by the `Navigation` parameter on `DocSite` |
-| `DocFooter` | Footer displaying the GitHub link configured on `DocSite` |
+| `DocSite` | Root layout: top bar, sidebar, mobile drawer, on-this-page rail, and search. Owns theme selection |
+| `ExampleView` | Renders a live component with its extracted source; preview/source/split modes (split stacks vertically with a capped code pane) and viewport clamps |
+| `CodeBlock` | Syntax-highlighted snippet with a line-number gutter, a soft-wrap toggle, file tabs (a file picker past four files) and a copy button |
+| `ApiDoc` | Generated API reference for a type, with member filtering, collapsible groups and deep links |
+| `DocSearch` | Command palette, rendered by `DocSite`. Also usable standalone |
+| `OnThisPage` | Sticky heading rail with scroll spy, plus a disclosure fallback on narrow viewports |
+| `ThemeToggle` | Cycles the colour scheme preference: system → light → dark |
+| `ThemePicker` | Selects the theme family. Rendered by `DocSite` when `ShowThemePicker` is set |
+| `Breadcrumb` | Section / page trail |
+| `DocFooter` | Attribution, licence and repository link. Rendered by `DocSite` at the bottom of the sidebar |
+| `DocIcon` | The shared inline icon set |
+
+## Upgrading from 0.8
+
+The C# API is compatible apart from `DocSidebar`, which was removed: the sidebar is now part
+of `DocSite`, so that the drawer, backdrop and scroll lock stay in one place. `NavPage`,
+`NavSection` and `OnThisPageSection` gained optional positional parameters, so code that
+deconstructs them or was compiled against 0.8 needs a rebuild. The stylesheet
+was rewritten, so most of the work is in markup and CSS:
+
+- Remove `<OnThisPage />` from your pages. `DocSite` renders it now, as a rail on wide
+  screens and a disclosure above the content on narrow ones. A page-level copy shows up as a
+  second rail inside the content.
+- Drop `// ` prefixes from headings. They are no longer stripped from the on-this-page list,
+  and themes that want heading markers add them with CSS. To show a different title in the
+  list, set `data-docs-toc-title` on the heading.
+- The `doc-*` classes are gone, including `doc-hero` and `doc-card`. Build landing pages from
+  `docs-eyebrow`, `docs-title`, `docs-lede`, `docs-meta-row` with `docs-chip`, and
+  `docs-callout`; the demo's `Home.razor` shows them together.
+- Rename CSS variables in your own styles:
+
+| Before | After |
+|--------|-------|
+| `--color-text` | `--docs-text` |
+| `--color-text-secondary` | `--docs-text-2` |
+| `--color-text-muted` | `--docs-text-3` |
+| `--color-text-dim` | `--docs-text-4` |
+| `--color-surface` | `--docs-surface-1` |
+| `--color-surface-raised` | `--docs-surface-2` |
+| `--color-surface-overlay` | `--docs-surface-3` |
+| `--color-surface-sidebar`, `--color-surface-topbar` | `--docs-bg` |
+| `--color-border` | `--docs-line` |
+| `--color-primary` | `--docs-accent` |
+| `--font-sans` | `--docs-font-sans` |
+| `--font-mono` | `--docs-font-mono` |
+
+Undefined variables drop the declarations that use them without any error, so check the
+pages in a browser rather than relying on a clean build.
+
+## Theming
+
+Two axes, applied as attributes on `<html>`:
+
+| Attribute | Meaning |
+|-----------|---------|
+| `data-docs-theme` | The palette and type family: `refined` (default), `terminal` or `glory-to-mankind` |
+| `data-docs-scheme` | The resolved colour scheme: `light` or `dark` |
+
+The `glory-to-mankind` palette builds on
+[SunkenInTime's NieR: Automata theme for T3 Code](https://github.com/SunkenInTime/t3-themes).
+
+Pick the theme on `DocSite`, and optionally let visitors switch:
+
+```razor
+<DocSite ProjectName="Your.Library"
+         LogoEmoji="🍓"
+         GitHubUrl="https://github.com/Spillgebees/Your.Library"
+         Navigation="@Navigation"
+         Theme="@DocsTheme.Terminal"
+         ShowThemePicker="true">
+    @Body
+</DocSite>
+```
+
+The colour scheme is a separate, visitor-controlled preference (`system` by default,
+following the OS and updating live). Both are persisted to `localStorage`. Until the SDK's
+script runs, the stylesheet follows the OS colour scheme, so a light system never flashes
+dark. A stored theme family is applied when `DocSite` first renders.
+
+A stored theme is only honoured when it is in `AvailableThemes`, since every docs site on
+the same origin shares the preference.
+
+### Custom themes
+
+Every rule in the stylesheet reads from CSS custom properties and contains no literal
+colour, font, radius or shadow value. A theme is therefore just a block redefining
+those tokens.
+
+1. Copy `_content/Spillgebees.Blazor.Docs.Sdk/docs-sdk-theme-template.css` into your
+   docs project and rename the theme in its selectors.
+2. Reference it *after* the SDK stylesheet in `index.html`.
+3. Select it with `Theme="@DocsTheme.Custom("acme")"`.
+
+You only need to define the tokens you want to change; anything omitted falls back to
+`refined`.
+
+**One rule to get right:** accent steps are named for *contrast*, not lightness.
+`--docs-accent-strong` must have **more** contrast against `--docs-bg` than
+`--docs-accent`: lighter on a dark scheme, and **darker** on a light one. It is used
+for links, active navigation, inline code and required badges, so getting this backwards
+silently drops all of them below 4.5:1 in light mode.
 
 ## Build-Time Automation
 

@@ -3,83 +3,167 @@
 @implements IDisposable
 @inject IJSRuntime JS
 
-<div class="code-block">
-    <div class="code-block-bar">
-        <div class="code-block-tabs">
-            @foreach (var fileName in VisibleFiles)
-            {
-                var file = fileName;
-                <button class="code-block-tab @(file == _activeFile ? "active" : "")"
-                        @onclick="@(() => SetActiveFile(file))">
-                    @file
-                </button>
-            }
-        </div>
-        @if (OverflowFiles.Count > 0)
+<div class="docs-code @(Bare ? "docs-code-bare" : "")" @ref="@_blockRef">
+    <div class="docs-code-bar">
+        @if (Files.Count > 1)
         {
-            <div class="code-block-overflow">
-                <button class="code-block-overflow-toggle @(IsOverflowFileActive ? "active" : "")"
-                        @onclick="@(() => _overflowOpen = !_overflowOpen)">
-                    @if (IsOverflowFileActive)
+            @* Both controls are rendered; the JS module shows the picker once
+               the tabs overflow the bar. They share _activeFile, so they
+               cannot drift. *@
+            <DocSelect TValue="string"
+                       Class="docs-code-filepicker"
+                       Items="@Files.Keys.ToList()"
+                       Value="@_activeFile"
+                       AriaLabel="Source file"
+                       ValueChanged="@SetActiveFile" />
+
+            @if (Files.Count <= MaxTabs)
+            {
+                <div class="docs-code-tabs" role="tablist" aria-label="Source files">
+                    @foreach (var fileName in Files.Keys)
                     {
-                        <span>@_activeFile</span>
+                        var file = fileName;
+                        var isActive = file == _activeFile;
+                        var tabClass = isActive ? "docs-code-tab docs-on" : "docs-code-tab";
+                        var selected = isActive ? "true" : "false";
+
+                        <button type="button"
+                                role="tab"
+                                class="@tabClass"
+                                aria-selected="@selected"
+                                title="@file"
+                                @onclick="@(() => SetActiveFile(file))">@file</button>
                     }
-                    else
-                    {
-                        <span>+@OverflowFiles.Count more</span>
-                    }
-                    <span class="code-block-overflow-arrow">@(_overflowOpen ? "▴" : "▾")</span>
-                </button>
-                @if (_overflowOpen)
-                {
-                    <div class="code-block-overflow-dropdown">
-                        @foreach (var fileName in OverflowFiles)
-                        {
-                            var file = fileName;
-                            <button class="code-block-overflow-item @(file == _activeFile ? "active" : "")"
-                                    @onclick="@(() => SelectOverflowFile(file))">
-                                @file
-                            </button>
-                        }
-                    </div>
-                }
-            </div>
+                </div>
+            }
         }
-        <button class="code-block-copy @(_copied ? "copied" : "")" @onclick="@CopyActiveFile" aria-label="Copy code">
-            @(_copied ? "ok" : "cp")
+        else if (Files.Count == 1)
+        {
+            <span class="docs-code-file" title="@_activeFile">@_activeFile</span>
+        }
+
+        @if (ShowLanguageLabel)
+        {
+            <span class="docs-code-lang">@LanguageLabel</span>
+        }
+        else
+        {
+            <span class="docs-code-lang"></span>
+        }
+
+        <button type="button"
+                class="docs-code-wrap"
+                @onclick="@ToggleWrapAsync"
+                title="Toggle soft wrap"
+                aria-label="Toggle soft wrap">
+            <DocIcon Name="@DocIconName.Wrap" />
         </button>
+
+        <button type="button"
+                class="docs-code-copy @(_copyState switch { CopyState.Copied => "docs-copied", CopyState.Failed => "docs-failed", _ => "" })"
+                @onclick="@CopyActiveFileAsync"
+                aria-label="Copy code">
+            <DocIcon Name="@(_copyState == CopyState.Copied ? DocIconName.Check : DocIconName.Copy)" />
+            <span>@CopyLabel</span>
+        </button>
+        <span class="docs-sr-only" role="status">@(_copyState == CopyState.Idle ? "" : CopyLabel)</span>
     </div>
-    <div class="code-block-content">
-        <pre @key="@_activeFile"><code @ref="@_codeRef" class="@GetLanguageClass()">@Files[_activeFile]</code></pre>
+
+    <div class="docs-code-body">
+        @* Filled by the JS module once the code is highlighted, and kept aligned
+           with the rendered lines. Outside the scroller so long lines cannot
+           slide underneath it, and hidden from assistive tech and selection. *@
+        <div class="docs-code-gutter" aria-hidden="true"></div>
+        <pre @key="@_activeFile"><code @ref="@_codeRef" class="@LanguageClass">@ActiveContent</code></pre>
     </div>
 </div>
 
 @code {
-    private const int MaxVisibleTabs = 3;
+    private enum CopyState
+    {
+        Idle,
+        Copied,
+        Failed,
+    }
 
+    /// <summary>The files to display, keyed by file name.</summary>
     [Parameter, EditorRequired]
     public IReadOnlyDictionary<string, string> Files { get; set; } = new Dictionary<string, string>();
 
+    /// <summary>
+    /// The language to highlight as, when it cannot be inferred from the file
+    /// name.
+    /// </summary>
     [Parameter]
     public string? Language { get; set; }
 
+    /// <summary>
+    /// Renders without its own border, radius or margin, for embedding inside
+    /// another surface such as <see cref="ExampleView{TComponent}"/>.
+    /// </summary>
+    [Parameter]
+    public bool Bare { get; set; }
+
+    /// <summary>
+    /// Above this many files the tab strip is replaced by a select. Four tabs
+    /// is about what fits beside the language label and copy button before the
+    /// strip starts scrolling.
+    /// </summary>
+    private const int MaxTabs = 4;
+
     private string _activeFile = "";
-    private bool _copied;
-    private bool _overflowOpen;
+    private CopyState _copyState;
     private ElementReference _codeRef;
-    private readonly CancellationTokenSource _disposeCts = new();
+    private ElementReference _blockRef;
+    private (string File, string Content, string Language)? _highlighted;
+    private string _fittedFiles = "";
+    private CancellationTokenSource _resetCts = new();
 
-    private IReadOnlyList<string> VisibleFiles =>
-        Files.Count <= MaxVisibleTabs + 1
-            ? Files.Keys.ToList()
-            : Files.Keys.Take(MaxVisibleTabs).ToList();
+    private string ActiveContent => Files.TryGetValue(_activeFile, out var content) ? content : "";
 
-    private IReadOnlyList<string> OverflowFiles =>
-        Files.Count <= MaxVisibleTabs + 1
-            ? []
-            : Files.Keys.Skip(MaxVisibleTabs).ToList();
+    private string CopyLabel =>
+        _copyState switch
+        {
+            CopyState.Copied => "Copied",
+            CopyState.Failed => "Failed",
+            _ => "Copy",
+        };
 
-    private bool IsOverflowFileActive => OverflowFiles.Contains(_activeFile);
+    private string LanguageLabel => (InferLanguageFromFileName(_activeFile) ?? Language ?? "").ToLowerInvariant();
+
+    /// <summary>
+    /// Suppresses the language chip when the tab already says the same thing:
+    /// a block keyed "terminal" should not also be labelled "TERMINAL".
+    /// </summary>
+    private bool ShowLanguageLabel =>
+        LanguageLabel.Length > 0
+        && !string.Equals(_activeFile, LanguageLabel, StringComparison.OrdinalIgnoreCase);
+
+    private string LanguageClass
+    {
+        get
+        {
+            var language = InferLanguageFromFileName(_activeFile) ?? Language;
+
+            if (string.IsNullOrEmpty(language))
+            {
+                return "";
+            }
+
+            return language.ToLowerInvariant() switch
+            {
+                "razor" or "cshtml" => "language-cshtml-razor",
+                "csharp" or "cs" or "c#" => "language-csharp",
+                "xml" or "csproj" => "language-xml",
+                "html" => "language-html",
+                "css" => "language-css",
+                "json" => "language-json",
+                "js" or "javascript" => "language-javascript",
+                "bash" or "shell" or "terminal" => "language-bash",
+                _ => $"language-{language.ToLowerInvariant()}",
+            };
+        }
+    }
 
     protected override void OnParametersSet()
     {
@@ -91,42 +175,107 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        await JS.InvokeVoidAsync("Spillgebees.DocsSdk.highlightElement", _codeRef);
-    }
-
-    private void SetActiveFile(string fileName)
-    {
-        _activeFile = fileName;
-    }
-
-    private void SelectOverflowFile(string fileName)
-    {
-        _activeFile = fileName;
-        _overflowOpen = false;
-    }
-
-    private string GetLanguageClass()
-    {
-        var language = InferLanguageFromFileName(_activeFile) ?? Language;
-
-        if (string.IsNullOrEmpty(language))
+        // Only when the listing changed: re-highlighting rebuilds the code DOM,
+        // which would also clear any text the visitor has selected in it, for
+        // example on every click of Copy.
+        // The tab strip can overflow when files are added without the block
+        // resizing, so recheck it whenever the set of files changes.
+        var files = string.Join('\n', Files.Keys);
+        if (files != _fittedFiles)
         {
-            return "";
+            _fittedFiles = files;
+            try
+            {
+                await JS.InvokeVoidAsync("Spillgebees.DocsSdk.fitCodeTabs", _blockRef, true);
+            }
+            catch (Exception exception) when (IsInteropUnavailable(exception))
+            {
+                // tabs simply scroll without the module
+            }
         }
 
-        return language.ToLowerInvariant() switch
+        var current = (_activeFile, ActiveContent, LanguageClass);
+        if (_highlighted == current)
         {
-            "razor" or "cshtml" => "language-cshtml-razor",
-            "csharp" or "cs" or "c#" => "language-csharp",
-            "xml" or "csproj" => "language-xml",
-            "html" => "language-html",
-            "css" => "language-css",
-            "json" => "language-json",
-            "js" or "javascript" => "language-javascript",
-            "bash" or "shell" or "terminal" => "language-bash",
-            _ => $"language-{language.ToLowerInvariant()}",
-        };
+            return;
+        }
+
+        _highlighted = current;
+
+        try
+        {
+            // Pass the source so re-highlighting starts from the original text
+            // rather than from the already-line-wrapped DOM.
+            await JS.InvokeVoidAsync("Spillgebees.DocsSdk.highlightElement", _codeRef, ActiveContent);
+        }
+        catch (Exception exception) when (IsInteropUnavailable(exception))
+        {
+            // unhighlighted source is still readable
+        }
     }
+
+    private void SetActiveFile(string fileName) => _activeFile = fileName;
+
+    private async Task ToggleWrapAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("Spillgebees.DocsSdk.toggleCodeWrap");
+        }
+        catch (Exception exception) when (IsInteropUnavailable(exception))
+        {
+            // without the module the block simply stays in scroll mode
+        }
+    }
+
+
+    private async Task CopyActiveFileAsync()
+    {
+        if (!Files.TryGetValue(_activeFile, out var content))
+        {
+            return;
+        }
+
+        _copyState = await CopyAsync(content) ? CopyState.Copied : CopyState.Failed;
+        StateHasChanged();
+
+        await ResetCopyStateLaterAsync();
+    }
+
+    private async Task<bool> CopyAsync(string content)
+    {
+        try
+        {
+            return await JS.InvokeAsync<bool>("Spillgebees.DocsSdk.copyToClipboard", content);
+        }
+        catch (Exception exception) when (IsInteropUnavailable(exception))
+        {
+            return false;
+        }
+    }
+
+    private async Task ResetCopyStateLaterAsync()
+    {
+        // Restart the timer so rapid clicks don't clear the state early.
+        await _resetCts.CancelAsync();
+        _resetCts.Dispose();
+        _resetCts = new CancellationTokenSource();
+
+        try
+        {
+            await Task.Delay(1500, _resetCts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        _copyState = CopyState.Idle;
+        StateHasChanged();
+    }
+
+    private static bool IsInteropUnavailable(Exception exception) =>
+        exception is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException;
 
     private static string? InferLanguageFromFileName(string fileName)
     {
@@ -150,7 +299,7 @@
         return extension switch
         {
             ".cs" => "csharp",
-            ".xml" or ".csproj" => "xml",
+            ".xml" or ".csproj" or ".props" or ".targets" => "xml",
             ".html" or ".htm" => "html",
             ".css" => "css",
             ".json" => "json",
@@ -160,32 +309,9 @@
         };
     }
 
-    private async Task CopyActiveFile()
-    {
-        if (!Files.TryGetValue(_activeFile, out var content))
-        {
-            return;
-        }
-
-        await JS.InvokeVoidAsync("Spillgebees.DocsSdk.copyToClipboard", content);
-        _copied = true;
-        StateHasChanged();
-        try
-        {
-            await Task.Delay(1500, _disposeCts.Token);
-        }
-        catch (TaskCanceledException)
-        {
-            return;
-        }
-
-        _copied = false;
-        StateHasChanged();
-    }
-
     public void Dispose()
     {
-        _disposeCts.Cancel();
-        _disposeCts.Dispose();
+        _resetCts.Cancel();
+        _resetCts.Dispose();
     }
 }

@@ -1,54 +1,138 @@
 @namespace Spillgebees.Blazor.Docs.Sdk
+@using Microsoft.AspNetCore.Components.Routing
 @using Microsoft.JSInterop
+@implements IDisposable
 @inject IJSRuntime JS
+@inject NavigationManager NavigationManager
 
-@if (_sections.Count > 0)
+@* Two presentations of the same data, shown at different breakpoints: a sticky
+   rail beside wide viewports, and a disclosure above the content on narrow
+   ones. The list is never simply hidden, so it stays reachable on phones. *@
+
+@if (Placement == OnThisPagePlacement.Rail)
 {
-    <div class="doc-on-this-page">
-        <button class="doc-on-this-page-toggle" @onclick="@ToggleOpen">
-            <span>// on_this_page</span>
-            <span class="doc-on-this-page-indicator">@(_isOpen ? "−" : "+")</span>
-        </button>
-        @if (_isOpen)
+    <aside class="docs-toc" aria-label="On this page">
+        @if (_sections.Count > 0)
         {
-            <div class="doc-on-this-page-dropdown">
-                @foreach (var item in _sections)
+            <p class="docs-toc-label">@Title</p>
+            <ul>
+                @foreach (var section in _sections)
                 {
-                    var id = item.Id;
-                    <button class="doc-on-this-page-link" @onclick="@(() => ScrollTo(id))">
-                        @item.Title
-                    </button>
+                    <li class="@(section.Level >= 3 ? "docs-toc-h3" : null)">
+                        <a href="@($"#{section.Id}")"
+                           data-docs-toc-link="@section.Id"
+                           @onclick="@(() => ScrollToAsync(section.Id))"
+                           @onclick:preventDefault="true">@section.Title</a>
+                    </li>
                 }
-            </div>
+            </ul>
         }
-    </div>
+    </aside>
+}
+else if (_sections.Count > 0)
+{
+    <details class="docs-toc-mobile">
+        <summary><DocIcon Name="@DocIconName.Chevron" />@Title</summary>
+        <nav aria-label="On this page">
+            @foreach (var section in _sections)
+            {
+                <a href="@($"#{section.Id}")"
+                   @onclick="@(() => ScrollToAsync(section.Id))"
+                   @onclick:preventDefault="true">@section.Title</a>
+            }
+        </nav>
+    </details>
 }
 
 @code {
-    private List<OnThisPageSection> _sections = [];
-    private bool _isOpen;
+    /// <summary>The heading shown above the list.</summary>
+    [Parameter]
+    public string Title { get; set; } = "On this page";
+
+    /// <summary>
+    /// Where this instance renders. <see cref="OnThisPagePlacement.Rail"/> and
+    /// <see cref="OnThisPagePlacement.Inline"/> are shown at different
+    /// breakpoints; <see cref="DocSite"/> renders one of each.
+    /// </summary>
+    [Parameter]
+    public OnThisPagePlacement Placement { get; set; } = OnThisPagePlacement.Rail;
+
+    private IReadOnlyList<OnThisPageSection> _sections = [];
+    private bool _refreshQueued = true;
+
+    protected override void OnInitialized() => NavigationManager.LocationChanged += OnLocationChanged;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
+        if (!_refreshQueued)
         {
-            var sections = await JS.InvokeAsync<OnThisPageSection[]>(
-                "Spillgebees.DocsSdk.getSections"
-            ) ?? [];
+            return;
+        }
 
-            if (sections.Length > 0)
-            {
-                _sections = [.. sections];
-                StateHasChanged();
-            }
+        _refreshQueued = false;
+        await RefreshAsync();
+    }
+
+    /// <summary>
+    /// Re-reads the headings from the rendered page and rebuilds the rail. Call
+    /// this after replacing page content without a navigation.
+    /// </summary>
+    public async Task RefreshAsync()
+    {
+        var sections = await GetSectionsAsync();
+
+        if (!sections.SequenceEqual(_sections))
+        {
+            _sections = sections;
+            StateHasChanged();
+        }
+
+        // Only the rail carries `data-docs-toc-link`, and the observer is a
+        // module-level singleton, so letting the inline copy register too would
+        // just disconnect the rail's.
+        if (Placement == OnThisPagePlacement.Rail)
+        {
+            await InvokeSafelyAsync("observeSections");
         }
     }
 
-    private async Task ScrollTo(string id)
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs args)
     {
-        _isOpen = false;
-        await JS.InvokeVoidAsync("Spillgebees.DocsSdk.scrollToElement", id);
+        // The headings belong to the newly rendered page, so re-read on the
+        // next render rather than immediately.
+        _refreshQueued = true;
+        StateHasChanged();
     }
 
-    private void ToggleOpen() => _isOpen = !_isOpen;
+    private async Task ScrollToAsync(string id) => await InvokeSafelyAsync("scrollToElement", id);
+
+    private async Task<IReadOnlyList<OnThisPageSection>> GetSectionsAsync()
+    {
+        try
+        {
+            var sections = await JS.InvokeAsync<OnThisPageSection[]>("Spillgebees.DocsSdk.getSections");
+            return sections ?? [];
+        }
+        catch (Exception exception) when (IsInteropUnavailable(exception))
+        {
+            return [];
+        }
+    }
+
+    private async ValueTask InvokeSafelyAsync(string method, params object?[] args)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync($"Spillgebees.DocsSdk.{method}", args);
+        }
+        catch (Exception exception) when (IsInteropUnavailable(exception))
+        {
+            // no module: the rail degrades to plain anchors
+        }
+    }
+
+    private static bool IsInteropUnavailable(Exception exception) =>
+        exception is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException;
+
+    public void Dispose() => NavigationManager.LocationChanged -= OnLocationChanged;
 }

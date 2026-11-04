@@ -1,37 +1,57 @@
 @namespace Spillgebees.Blazor.Docs.Sdk
 
-<footer class="doc-footer">
-    <div class="doc-footer-line">
-        made by <a href="https://github.com/igotinfected" target="_blank" rel="noopener noreferrer">igotinfected</a> with <span role="img" aria-label="strawberry">🍓</span>
-    </div>
-    <div class="doc-footer-line">
-        MIT ·
-        @if (SafeGitHubUrl is not null)
+@* Rendered at the bottom of the sidebar by DocSite so it is always visible on
+   desktop, rather than only after scrolling to the end of a page. *@
+@* Two deliberate rows rather than a wrapping single line: at sidebar width the
+   three parts cannot share a row, and letting them wrap left a dangling
+   separator at the end of the first line. *@
+<footer class="docs-footer">
+    <span class="docs-footer-row">
+        made by
+        <a href="@AuthorUrl" target="_blank" rel="noopener noreferrer">@AuthorName</a>
+        with <span role="img" aria-label="strawberry">🍓</span>
+    </span>
+
+    <span class="docs-footer-row">
+        <span>@License</span>
+
+        @if (SafeProjectUrl is not null)
         {
-            <a href="@SafeGitHubUrl" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
-                </svg>
+            <span class="docs-footer-sep" aria-hidden="true">·</span>
+            <a class="docs-footer-mark"
+               href="@SafeProjectUrl"
+               target="_blank"
+               rel="noopener noreferrer"
+               aria-label="Project on GitHub"
+               title="Project on GitHub">
+                <DocIcon Name="@DocIconName.GitHub" />
             </a>
         }
-        else
-        {
-            <span aria-label="GitHub">
-            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
-            </svg>
-            </span>
-        }
-    </div>
+    </span>
 </footer>
 
 @code {
+    /// <summary>
+    /// The project repository URL, linked from the GitHub mark.
+    /// </summary>
     [Parameter, EditorRequired]
     public string GitHubUrl { get; set; } = default!;
 
-    private string? SafeGitHubUrl =>
+    /// <summary>The author name shown in the attribution.</summary>
+    [Parameter]
+    public string AuthorName { get; set; } = "igotinfected";
+
+    /// <summary>The author's profile URL, linked from their name.</summary>
+    [Parameter]
+    public string AuthorUrl { get; set; } = "https://github.com/igotinfected";
+
+    /// <summary>The licence label.</summary>
+    [Parameter]
+    public string License { get; set; } = "MIT";
+
+    private string? SafeProjectUrl =>
         Uri.TryCreate(GitHubUrl, UriKind.Absolute, out var uri)
-            && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
+        && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
             ? uri.ToString()
             : null;
 }

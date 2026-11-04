@@ -1,50 +1,76 @@
 @namespace Spillgebees.Blazor.Docs.Sdk
 
-<div class="doc-breadcrumb">
-    <span class="doc-breadcrumb-path">
-        <span class="doc-breadcrumb-segment">@Section</span>
-        <span class="doc-breadcrumb-separator">/</span>
-        <span class="doc-breadcrumb-current">@PageName</span>
-    </span>
-    @if (ApiReferenceUrl is not null || SourceUrl is not null || ExamplesUrl is not null)
+<nav class="docs-breadcrumb" aria-label="Breadcrumb">
+    @if (SectionHref is not null)
     {
-        <span class="doc-breadcrumb-divider">|</span>
-        @if (ApiReferenceUrl is not null)
-        {
-            <a href="@ApiReferenceUrl" class="doc-breadcrumb-link">api_ref</a>
-        }
-        @if (SourceUrl is not null)
-        {
-            if (ApiReferenceUrl is not null)
-            {
-                <span class="doc-breadcrumb-divider">|</span>
-            }
-            <a href="@SourceUrl" class="doc-breadcrumb-link">source</a>
-        }
-        @if (ExamplesUrl is not null)
-        {
-            if (ApiReferenceUrl is not null || SourceUrl is not null)
-            {
-                <span class="doc-breadcrumb-divider">|</span>
-            }
-            <a href="@ExamplesUrl" class="doc-breadcrumb-link">examples</a>
-        }
+        <a href="@SectionHref">@Section</a>
     }
-</div>
+    else
+    {
+        <span>@Section</span>
+    }
+
+    <DocIcon Name="@DocIconName.Chevron" />
+    <span aria-current="page">@PageName</span>
+
+    @if (HasLinks)
+    {
+        <span class="docs-breadcrumb-links">
+            @if (ApiReferenceUrl is not null)
+            {
+                <a href="@ApiReferenceUrl">
+                    <DocIcon Name="@DocIconName.Brackets" />
+                    <span>API</span>
+                </a>
+            }
+            @if (SourceUrl is not null)
+            {
+                <a href="@SourceUrl" target="_blank" rel="noopener noreferrer">
+                    <DocIcon Name="@DocIconName.GitHub" />
+                    <span>Source</span>
+                </a>
+            }
+            @if (ExamplesUrl is not null)
+            {
+                <a href="@ExamplesUrl">
+                    <DocIcon Name="@DocIconName.Eye" />
+                    <span>Examples</span>
+                </a>
+            }
+        </span>
+    }
+</nav>
 
 @code {
+    /// <summary>The section this page belongs to.</summary>
     [Parameter, EditorRequired]
     public string Section { get; set; } = default!;
 
+    /// <summary>The current page's name.</summary>
     [Parameter, EditorRequired]
     public string PageName { get; set; } = default!;
 
+    /// <summary>
+    /// Optional link for the section segment. When omitted the segment renders
+    /// as plain text.
+    /// </summary>
+    [Parameter]
+    public string? SectionHref { get; set; }
+
+    /// <summary>
+    /// Optional link to this type's generated API reference page, shown as a
+    /// shortcut at the end of the trail.
+    /// </summary>
     [Parameter]
     public string? ApiReferenceUrl { get; set; }
 
+    /// <summary>Optional link to the component's source on the repository host.</summary>
     [Parameter]
     public string? SourceUrl { get; set; }
 
+    /// <summary>Optional link to a page of examples for this component.</summary>
     [Parameter]
     public string? ExamplesUrl { get; set; }
+
+    private bool HasLinks => ApiReferenceUrl is not null || SourceUrl is not null || ExamplesUrl is not null;
 }
