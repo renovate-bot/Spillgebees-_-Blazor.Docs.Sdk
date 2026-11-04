@@ -24,7 +24,7 @@ jobs:
           persist-credentials: false
 
       - name: setup pnpm
-        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6
         with:
           package_json_file: src/Spillgebees.Blazor.Docs.Sdk.Assets/package.json
 
@@ -36,7 +36,7 @@ jobs:
           cache-dependency-path: src/Spillgebees.Blazor.Docs.Sdk.Assets/pnpm-lock.yaml
 
       - name: setup .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6
         with:
           global-json-file: global.json
 
@@ -73,7 +73,7 @@ jobs:
           persist-credentials: false
 
       - name: setup pnpm
-        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6
         with:
           package_json_file: src/Spillgebees.Blazor.Docs.Sdk.Assets/package.json
 
@@ -85,7 +85,7 @@ jobs:
           cache-dependency-path: src/Spillgebees.Blazor.Docs.Sdk.Assets/pnpm-lock.yaml
 
       - name: setup .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6
         with:
           global-json-file: global.json
 
