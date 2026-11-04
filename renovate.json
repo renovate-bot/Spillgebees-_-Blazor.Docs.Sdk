@@ -2,18 +2,5 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "local>Spillgebees/admin"
-  ],
-  "packageRules": [
-    {
-      "description": "The API manifest tool loads the SDK's MSBuild through Microsoft.Build.Locator, so the MSBuild packages it compiles against must not be newer than the MSBuild in the SDK pinned by global.json (10.0.4xx ships MSBuild 18.9). Raise this cap when the SDK moves to a band with a newer MSBuild.",
-      "matchManagers": [
-        "nuget"
-      ],
-      "matchPackageNames": [
-        "Microsoft.Build.Framework",
-        "Microsoft.NET.StringTools"
-      ],
-      "allowedVersions": "<18.10.0"
-    }
   ]
 }

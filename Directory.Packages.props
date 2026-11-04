@@ -9,12 +9,7 @@
     <!-- Build tooling -->
     <PackageVersion Include="DotNet.ReproducibleBuilds" Version="2.0.5" />
     <PackageVersion Include="MinVer" Version="8.0.0" />
-    <PackageVersion Include="Microsoft.Build.Framework" Version="18.9.6" />
-    <PackageVersion Include="Microsoft.Build.Locator" Version="1.11.2" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
-    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="5.9.0" />
-    <PackageVersion Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" Version="5.9.0" />
-    <PackageVersion Include="Microsoft.NET.StringTools" Version="18.9.6" />
 
     <!-- Runtime -->
     <PackageVersion Include="Microsoft.AspNetCore.Components.Web" Version="$(AspNetCoreVersion)" />

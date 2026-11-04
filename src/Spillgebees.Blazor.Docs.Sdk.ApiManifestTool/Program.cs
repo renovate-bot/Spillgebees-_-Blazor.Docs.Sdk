@@ -5,9 +5,8 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
-using Microsoft.Build.Locator;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.MSBuild;
+using Microsoft.CodeAnalysis.CSharp;
 using Spillgebees.Blazor.Docs.Sdk;
 
 internal static partial class Program
@@ -30,61 +29,55 @@ internal static partial class Program
             | SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier
     );
 
-    public static async Task<int> Main(string[] args)
+    public static int Main(string[] args)
     {
         var options = ToolOptions.Parse(args);
         if (options is null)
         {
             Console.Error.WriteLine(
-                "Usage: --project <project.csproj> --output <directory> [--configuration <Configuration>] [--target-framework <TFM>]"
+                "Usage: --assembly <assembly.dll> --references <file> --output <manifest.json> [--documentation <assembly.xml>]"
             );
             return 2;
         }
 
         try
         {
-            if (!MSBuildLocator.IsRegistered)
-            {
-                MSBuildLocator.RegisterDefaults();
-            }
+            var documentation = File.Exists(options.DocumentationPath)
+                ? new XmlDocumentationFile(options.DocumentationPath!)
+                : null;
+            var assemblyReference = MetadataReference.CreateFromFile(
+                options.AssemblyPath,
+                documentation: documentation
+            );
+            var assemblyFileName = Path.GetFileName(options.AssemblyPath);
 
-            var globalProperties = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["Configuration"] = options.Configuration,
-            };
+            // the docs project's references resolve the assembly's base types and attributes
+            var references = File.ReadAllLines(options.ReferencesPath)
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Where(x => !string.Equals(Path.GetFileName(x), assemblyFileName, StringComparison.OrdinalIgnoreCase))
+                .Select(x => MetadataReference.CreateFromFile(x))
+                .Prepend(assemblyReference);
 
-            if (!string.IsNullOrWhiteSpace(options.TargetFramework))
+            var compilation = CSharpCompilation.Create("DocsSdk.ApiManifest", references: references);
+            if (compilation.GetAssemblyOrModuleSymbol(assemblyReference) is not IAssemblySymbol assembly)
             {
-                globalProperties["TargetFramework"] = options.TargetFramework;
-            }
-
-            using var workspace = MSBuildWorkspace.Create(globalProperties);
-            workspace.RegisterWorkspaceFailedHandler(e =>
-            {
-                if (e.Diagnostic.Kind == WorkspaceDiagnosticKind.Failure)
-                {
-                    Console.Error.WriteLine(e.Diagnostic.Message);
-                }
-            });
-
-            var project = await workspace.OpenProjectAsync(options.ProjectPath).ConfigureAwait(false);
-            var compilation = await project.GetCompilationAsync().ConfigureAwait(false);
-            if (compilation is null)
-            {
-                Console.Error.WriteLine($"Could not create a Roslyn compilation for '{options.ProjectPath}'.");
+                Console.Error.WriteLine($"Could not load '{options.AssemblyPath}'.");
                 return 1;
             }
 
-            var manifest = Generate(compilation);
+            var manifest = Generate(assembly);
+            var json = JsonSerializer.SerializeToUtf8Bytes(
+                manifest,
+                new JsonSerializerOptions { WriteIndented = true }
+            );
 
-            Directory.CreateDirectory(options.OutputDirectory);
-            var outputPath = Path.Combine(options.OutputDirectory, manifest.AssemblyName + ".json");
-            using var outputStream = File.Create(outputPath);
-            await JsonSerializer
-                .SerializeAsync(outputStream, manifest, new JsonSerializerOptions { WriteIndented = true })
-                .ConfigureAwait(false);
+            // rewriting an unchanged manifest would make the docs project recompile
+            if (!File.Exists(options.OutputPath) || !File.ReadAllBytes(options.OutputPath).AsSpan().SequenceEqual(json))
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(options.OutputPath)!);
+                File.WriteAllBytes(options.OutputPath, json);
+            }
 
-            Console.WriteLine(outputPath);
             return 0;
         }
         catch (Exception exception)
@@ -94,10 +87,10 @@ internal static partial class Program
         }
     }
 
-    private static ApiManifest Generate(Compilation compilation)
+    private static ApiManifest Generate(IAssemblySymbol assembly)
     {
-        var manifest = new ApiManifest { AssemblyName = compilation.AssemblyName ?? "Assembly" };
-        var types = EnumerateNamedTypes(compilation.Assembly.GlobalNamespace)
+        var manifest = new ApiManifest { AssemblyName = assembly.Identity.Name };
+        var types = EnumerateNamedTypes(assembly.GlobalNamespace)
             .Where(IsDocumentablePublicType)
             .OrderBy(x => GetSymbolId(x), StringComparer.Ordinal)
             .ToList();
@@ -130,6 +123,15 @@ internal static partial class Program
 
         foreach (var type in types)
         {
+            // C# 14 extension members compile to static implementation methods on the containing class
+            var extensionImplementations = type.GetTypeMembers()
+                .Where(x => x.IsExtension)
+                .SelectMany(x => x.GetMembers())
+                .OfType<IMethodSymbol>()
+                .Select(x => x.AssociatedExtensionImplementation)
+                .OfType<IMethodSymbol>()
+                .ToHashSet(SymbolEqualityComparer.Default);
+
             var typeDocs = Documentation.From(type, ResolveCref);
             var typeDocId = DocumentationCommentId.CreateDeclarationId(type);
             var typeInfo = new ApiTypeInfo
@@ -170,6 +172,7 @@ internal static partial class Program
                 typeInfo.Methods = type.GetMembers()
                     .OfType<IMethodSymbol>()
                     .Where(IsDocumentableMethod)
+                    .Where(x => !extensionImplementations.Contains(x))
                     .OrderBy(x => x.Name, StringComparer.Ordinal)
                     .ThenBy(x => x.Parameters.Length)
                     .ThenBy(x => string.Join(",", x.Parameters.Select(p => p.Type.ToDisplayString(TypeDisplayFormat))))
@@ -212,10 +215,10 @@ internal static partial class Program
     private static bool IsDocumentablePublicType(INamedTypeSymbol symbol)
     {
         if (
-            symbol.IsImplicitlyDeclared
-            || symbol.DeclaredAccessibility != Accessibility.Public
-            || symbol.Locations.All(x => !x.IsInSource)
-            || IsRazorInfrastructureType(symbol)
+            symbol.DeclaredAccessibility != Accessibility.Public
+            || !symbol.CanBeReferencedByName
+            || IsCompilerGenerated(symbol)
+            || string.Equals(symbol.Name, "_Imports", StringComparison.Ordinal)
         )
         {
             return false;
@@ -236,23 +239,21 @@ internal static partial class Program
         return true;
     }
 
-    private static bool IsRazorInfrastructureType(INamedTypeSymbol symbol) =>
-        string.Equals(symbol.Name, "_Imports", StringComparison.Ordinal)
-        || symbol.Locations.Any(location =>
-            location.SourceTree?.FilePath.EndsWith("_Imports.razor.g.cs", StringComparison.OrdinalIgnoreCase) == true
-            || location.SourceTree?.FilePath.EndsWith("_Imports.razor", StringComparison.OrdinalIgnoreCase) == true
-        );
-
     private static bool IsDocumentableProperty(IPropertySymbol symbol) =>
-        !symbol.IsImplicitlyDeclared && symbol.DeclaredAccessibility == Accessibility.Public && !symbol.IsIndexer;
+        symbol.DeclaredAccessibility == Accessibility.Public && !symbol.IsIndexer && !IsCompilerGenerated(symbol);
 
     private static bool IsDocumentableMethod(IMethodSymbol symbol) =>
-        !symbol.IsImplicitlyDeclared
-        && symbol.DeclaredAccessibility == Accessibility.Public
-        && symbol.MethodKind == MethodKind.Ordinary;
+        symbol.DeclaredAccessibility == Accessibility.Public
+        && symbol.MethodKind == MethodKind.Ordinary
+        && symbol.CanBeReferencedByName
+        && !IsCompilerGenerated(symbol);
 
     private static bool IsDocumentableEvent(IEventSymbol symbol) =>
-        !symbol.IsImplicitlyDeclared && symbol.DeclaredAccessibility == Accessibility.Public;
+        symbol.DeclaredAccessibility == Accessibility.Public && !IsCompilerGenerated(symbol);
+
+    // members the compiler synthesizes, such as record equality and ToString, are not part of the documented API
+    private static bool IsCompilerGenerated(ISymbol symbol) =>
+        HasAttribute(symbol, "System.Runtime.CompilerServices.CompilerGeneratedAttribute");
 
     private static ApiGenericParameter CreateGenericParameter(ITypeParameterSymbol symbol)
     {
@@ -522,10 +523,10 @@ internal static partial class Program
     private static partial Regex SlugUnsafeCharacters();
 
     private sealed record ToolOptions(
-        string ProjectPath,
-        string OutputDirectory,
-        string Configuration,
-        string? TargetFramework
+        string AssemblyPath,
+        string? DocumentationPath,
+        string ReferencesPath,
+        string OutputPath
     )
     {
         public static ToolOptions? Parse(string[] args)
@@ -542,13 +543,16 @@ internal static partial class Program
             }
 
             return
-                values.TryGetValue("project", out var projectPath)
-                && values.TryGetValue("output", out var outputDirectory)
+                values.TryGetValue("assembly", out var assemblyPath)
+                && values.TryGetValue("references", out var referencesPath)
+                && values.TryGetValue("output", out var outputPath)
                 ? new ToolOptions(
-                    Path.GetFullPath(projectPath),
-                    Path.GetFullPath(outputDirectory),
-                    values.GetValueOrDefault("configuration", "Debug"),
-                    values.GetValueOrDefault("target-framework")
+                    Path.GetFullPath(assemblyPath),
+                    values.TryGetValue("documentation", out var documentationPath)
+                        ? Path.GetFullPath(documentationPath)
+                        : null,
+                    Path.GetFullPath(referencesPath),
+                    Path.GetFullPath(outputPath)
                 )
                 : null;
         }
@@ -769,4 +773,26 @@ internal static partial class Program
     }
 
     private sealed record DocumentationText(string? Text, string? Html);
+
+    private sealed class XmlDocumentationFile(string path) : DocumentationProvider
+    {
+        // keeps each member's XML exactly as the compiler wrote it
+        private readonly Dictionary<string, string> _members = XDocument
+            .Load(path, LoadOptions.PreserveWhitespace)
+            .Descendants("member")
+            .Select(x => (Name: x.Attribute("name")?.Value, Xml: x.ToString(SaveOptions.DisableFormatting)))
+            .Where(x => x.Name is not null)
+            .DistinctBy(x => x.Name)
+            .ToDictionary(x => x.Name!, x => x.Xml, StringComparer.Ordinal);
+
+        protected override string? GetDocumentationForSymbol(
+            string documentationMemberID,
+            CultureInfo preferredCulture,
+            CancellationToken cancellationToken = default
+        ) => _members.GetValueOrDefault(documentationMemberID);
+
+        public override bool Equals(object? obj) => ReferenceEquals(this, obj);
+
+        public override int GetHashCode() => path.GetHashCode(StringComparison.Ordinal);
+    }
 }

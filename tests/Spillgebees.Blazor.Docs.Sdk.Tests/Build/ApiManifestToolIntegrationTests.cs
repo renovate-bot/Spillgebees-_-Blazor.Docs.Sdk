@@ -25,17 +25,8 @@ public class ApiManifestToolIntegrationTests
             );
 
             // assert
-            var manifestPath = Path.Combine(
-                fixture.DocsProjectDirectory,
-                "obj",
-                "DocsSdk",
-                "manifests",
-                "DocumentedLibrary.json"
-            );
-            File.Exists(manifestPath).Should().BeTrue();
-            File.Exists(
-                    Path.Combine(fixture.DocsProjectDirectory, "obj", "DocsSdk", "manifests", "UnoptedLibrary.json")
-                )
+            File.Exists(fixture.ManifestPath).Should().BeTrue();
+            File.Exists(Path.Combine(Path.GetDirectoryName(fixture.ManifestPath)!, "UnoptedLibrary.json"))
                 .Should()
                 .BeFalse();
         }
@@ -104,6 +95,314 @@ public class ApiManifestToolIntegrationTests
 
             var enumType = manifest.Types.Single(x => x.Id == "DocumentedLibrary.MapMode");
             enumType.EnumValues.Single(x => x.Name == "Hybrid").Value.Should().Be(42);
+
+            var razorComponent = manifest.Types.Single(x => x.Id == "DocumentedLibrary.MapLegend");
+            razorComponent.Kind.Should().Be("component");
+            razorComponent.Properties.Single(x => x.Name == "Title").IsParameter.Should().BeTrue();
+            razorComponent.Properties.Single(x => x.Name == "Title").Summary.Should().Be("Legend title.");
+
+            var record = manifest.Types.Single(x => x.Id == "DocumentedLibrary.MapPoint");
+            record.Kind.Should().Be("record");
+            record.Summary.Should().Be("A point on the map.");
+            record.Properties.Select(x => x.Name).Should().BeEquivalentTo(["Latitude", "Longitude"]);
+            record.Methods.Should().BeEmpty();
+
+            manifest.Types.Should().NotContain(x => x.Id.Contains('<'));
+            manifest.Types.Single(x => x.Id == "DocumentedLibrary.MapPointExtensions").Methods.Should().BeEmpty();
+        }
+        finally
+        {
+            TryDeleteDirectory(fixture.RootDirectory);
+        }
+    }
+
+    [Test]
+    public async Task Should_not_rebuild_anything_when_building_twice_without_changes()
+    {
+        // arrange
+        var fixture = await CreateFixtureAsync();
+
+        try
+        {
+            await BuildDocsAsync(fixture);
+            var firstBuild = GetLastWriteTimes(fixture);
+
+            // act
+            await BuildDocsAsync(fixture);
+
+            // assert
+            GetLastWriteTimes(fixture).Should().BeEquivalentTo(firstBuild);
+        }
+        finally
+        {
+            TryDeleteDirectory(fixture.RootDirectory);
+        }
+    }
+
+    [Test]
+    public async Task Should_update_manifest_when_referenced_public_api_changes()
+    {
+        // arrange
+        var fixture = await CreateFixtureAsync();
+
+        try
+        {
+            await BuildDocsAsync(fixture);
+            var mapModePath = Path.Combine(fixture.DocumentedProjectDirectory, "MapMode.cs");
+            var mapMode = await File.ReadAllTextAsync(mapModePath);
+            await File.WriteAllTextAsync(
+                mapModePath,
+                mapMode.Replace(
+                    "Hybrid = 42,",
+                    "Hybrid = 42,\n\n    /// <summary>Satellite mode.</summary>\n    Satellite = 7,",
+                    StringComparison.Ordinal
+                )
+            );
+
+            // act
+            await BuildDocsAsync(fixture);
+
+            // assert
+            var manifest = await ReadManifestAsync(fixture);
+            var satellite = manifest
+                .Types.Single(x => x.Id == "DocumentedLibrary.MapMode")
+                .EnumValues.Single(x => x.Name == "Satellite");
+            satellite.Value.Should().Be(7);
+            satellite.Summary.Should().Be("Satellite mode.");
+        }
+        finally
+        {
+            TryDeleteDirectory(fixture.RootDirectory);
+        }
+    }
+
+    [Test]
+    public async Task Should_update_manifest_when_only_documentation_changes()
+    {
+        // arrange
+        var fixture = await CreateFixtureAsync();
+
+        try
+        {
+            await BuildDocsAsync(fixture);
+            await ReplaceInFileAsync(
+                Path.Combine(fixture.DocumentedProjectDirectory, "MapPoint.cs"),
+                "A point on the map.",
+                "A geographic point."
+            );
+
+            // act
+            await BuildDocsAsync(fixture);
+
+            // assert
+            var manifest = await ReadManifestAsync(fixture);
+            manifest.Types.Single(x => x.Id == "DocumentedLibrary.MapPoint").Summary.Should().Be("A geographic point.");
+        }
+        finally
+        {
+            TryDeleteDirectory(fixture.RootDirectory);
+        }
+    }
+
+    [Test]
+    public async Task Should_not_rewrite_manifest_when_only_private_code_changes()
+    {
+        // arrange
+        var fixture = await CreateFixtureAsync();
+
+        try
+        {
+            await BuildDocsAsync(fixture);
+            var firstBuild = GetLastWriteTimes(fixture);
+            await ReplaceInFileAsync(
+                Path.Combine(fixture.DocumentedProjectDirectory, "TrackedEntityLayer.cs"),
+                "public TItem? Find(int id) => null;",
+                "public TItem? Find(int id) => id < 0 ? null : null;"
+            );
+
+            // act
+            await BuildDocsAsync(fixture);
+
+            // assert
+            var secondBuild = GetLastWriteTimes(fixture);
+            secondBuild[fixture.StampPath].Should().BeAfter(firstBuild[fixture.StampPath]);
+            secondBuild[fixture.ManifestPath].Should().Be(firstBuild[fixture.ManifestPath]);
+            secondBuild[fixture.DocsAssemblyPath].Should().Be(firstBuild[fixture.DocsAssemblyPath]);
+        }
+        finally
+        {
+            TryDeleteDirectory(fixture.RootDirectory);
+        }
+    }
+
+    [Test]
+    public async Task Should_regenerate_manifest_when_it_was_deleted()
+    {
+        // arrange
+        var fixture = await CreateFixtureAsync();
+
+        try
+        {
+            await BuildDocsAsync(fixture);
+            File.Delete(fixture.ManifestPath);
+
+            // act
+            await BuildDocsAsync(fixture);
+
+            // assert
+            File.Exists(fixture.ManifestPath).Should().BeTrue();
+        }
+        finally
+        {
+            TryDeleteDirectory(fixture.RootDirectory);
+        }
+    }
+
+    [Test]
+    public async Task Should_warn_and_still_generate_manifest_when_documentation_file_is_missing()
+    {
+        // arrange
+        var fixture = await CreateFixtureAsync(generateDocumentationFile: false);
+
+        try
+        {
+            // act
+            var output = await BuildDocsAsync(fixture);
+
+            // assert
+            output.Should().Contain("warning DOCSSDK001");
+            var manifest = await ReadManifestAsync(fixture);
+            manifest.Types.Single(x => x.Id == "DocumentedLibrary.MapPoint").Summary.Should().BeNull();
+        }
+        finally
+        {
+            TryDeleteDirectory(fixture.RootDirectory);
+        }
+    }
+
+    [Test]
+    public async Task Should_skip_manifest_generation_in_design_time_builds_before_the_library_is_built()
+    {
+        // arrange
+        var fixture = await CreateFixtureAsync();
+
+        try
+        {
+            // act
+            var output = await ExecuteProcessAsync(
+                "dotnet",
+                $"msbuild \"{fixture.DocsProjectPath}\" -nologo -restore -t:GetCopyToOutputDirectoryItems -p:DesignTimeBuild=true -p:BuildProjectReferences=false",
+                TimeSpan.FromSeconds(120)
+            );
+
+            // assert
+            output.Should().NotContain("DOCSSDK");
+            File.Exists(fixture.ManifestPath).Should().BeFalse();
+        }
+        finally
+        {
+            TryDeleteDirectory(fixture.RootDirectory);
+        }
+    }
+
+    [Test]
+    public async Task Should_fail_with_clear_error_when_the_library_is_not_built()
+    {
+        // arrange
+        var fixture = await CreateFixtureAsync();
+
+        try
+        {
+            // act
+            var output = await ExecuteProcessAsync(
+                "dotnet",
+                $"build \"{fixture.DocsProjectPath}\" -nologo --no-dependencies",
+                TimeSpan.FromSeconds(120),
+                expectSuccess: false
+            );
+
+            // assert
+            output.Should().Contain("error DOCSSDK002");
+            output.Should().NotContain("DOCSSDK001");
+        }
+        finally
+        {
+            TryDeleteDirectory(fixture.RootDirectory);
+        }
+    }
+
+    [Test]
+    public async Task Should_drop_summaries_when_the_documentation_file_is_deleted()
+    {
+        // arrange
+        var fixture = await CreateFixtureAsync();
+
+        try
+        {
+            await BuildDocsAsync(fixture);
+            foreach (var configurationDirectory in new[] { "bin", "obj" })
+            {
+                File.Delete(
+                    Path.Combine(
+                        fixture.DocumentedProjectDirectory,
+                        configurationDirectory,
+                        "Debug",
+                        "net10.0",
+                        "DocumentedLibrary.xml"
+                    )
+                );
+            }
+
+            // act
+            var output = await ExecuteProcessAsync(
+                "dotnet",
+                $"build \"{fixture.DocsProjectPath}\" -nologo --no-dependencies",
+                TimeSpan.FromSeconds(120)
+            );
+
+            // assert
+            output.Should().Contain("warning DOCSSDK001");
+            var manifest = await ReadManifestAsync(fixture);
+            manifest.Types.Single(x => x.Id == "DocumentedLibrary.MapPoint").Summary.Should().BeNull();
+        }
+        finally
+        {
+            TryDeleteDirectory(fixture.RootDirectory);
+        }
+    }
+
+    [Test]
+    public async Task Should_generate_and_embed_a_manifest_per_docs_api_reference()
+    {
+        // arrange
+        var fixture = await CreateFixtureAsync();
+
+        try
+        {
+            await ReplaceInFileAsync(
+                fixture.DocsProjectPath,
+                """<ProjectReference Include="../UnoptedLibrary/UnoptedLibrary.csproj" />""",
+                """<ProjectReference Include="../UnoptedLibrary/UnoptedLibrary.csproj" DocsApi="true" />"""
+            );
+            await ReplaceInFileAsync(
+                Path.Combine(fixture.RootDirectory, "UnoptedLibrary", "UnoptedLibrary.csproj"),
+                "<Nullable>enable</Nullable>",
+                "<Nullable>enable</Nullable><GenerateDocumentationFile>true</GenerateDocumentationFile>"
+            );
+            var secondManifestPath = Path.Combine(Path.GetDirectoryName(fixture.ManifestPath)!, "UnoptedLibrary.json");
+            await BuildDocsAsync(fixture);
+            var firstBuild = GetLastWriteTimes(fixture);
+            var secondManifestWriteTime = File.GetLastWriteTimeUtc(secondManifestPath);
+
+            // act
+            await BuildDocsAsync(fixture);
+
+            // assert
+            GetLastWriteTimes(fixture).Should().BeEquivalentTo(firstBuild);
+            File.GetLastWriteTimeUtc(secondManifestPath).Should().Be(secondManifestWriteTime);
+            var docsAssembly = await File.ReadAllBytesAsync(fixture.DocsAssemblyPath);
+            ContainsAscii(docsAssembly, "ApiManifest:DocumentedLibrary").Should().BeTrue();
+            ContainsAscii(docsAssembly, "ApiManifest:UnoptedLibrary").Should().BeTrue();
         }
         finally
         {
@@ -141,18 +440,40 @@ public class ApiManifestToolIntegrationTests
 
     private static async Task<ApiManifest> ReadManifestAsync(ApiManifestFixture fixture)
     {
-        var manifestPath = Path.Combine(
-            fixture.DocsProjectDirectory,
-            "obj",
-            "DocsSdk",
-            "manifests",
-            "DocumentedLibrary.json"
-        );
-        await using var stream = File.OpenRead(manifestPath);
+        await using var stream = File.OpenRead(fixture.ManifestPath);
         return (await JsonSerializer.DeserializeAsync<ApiManifest>(stream))!;
     }
 
-    private static async Task<ApiManifestFixture> CreateFixtureAsync()
+    private static Task<string> BuildDocsAsync(ApiManifestFixture fixture) =>
+        ExecuteProcessAsync("dotnet", $"build \"{fixture.DocsProjectPath}\" -nologo", TimeSpan.FromSeconds(120));
+
+    private static bool ContainsAscii(byte[] bytes, string value) =>
+        bytes.AsSpan().IndexOf(System.Text.Encoding.ASCII.GetBytes(value)) >= 0;
+
+    private static async Task ReplaceInFileAsync(string path, string oldValue, string newValue)
+    {
+        var content = await File.ReadAllTextAsync(path);
+        content.Should().Contain(oldValue);
+        await File.WriteAllTextAsync(path, content.Replace(oldValue, newValue, StringComparison.Ordinal));
+    }
+
+    private static Dictionary<string, DateTime> GetLastWriteTimes(ApiManifestFixture fixture) =>
+        new[]
+        {
+            Path.Combine(
+                fixture.DocumentedProjectDirectory,
+                "obj",
+                "Debug",
+                "net10.0",
+                "DocumentedLibrary.AssemblyInfo.cs"
+            ),
+            Path.Combine(fixture.DocumentedProjectDirectory, "obj", "Debug", "net10.0", "DocumentedLibrary.dll"),
+            fixture.DocsAssemblyPath,
+            fixture.ManifestPath,
+            fixture.StampPath,
+        }.ToDictionary(x => x, File.GetLastWriteTimeUtc);
+
+    private static async Task<ApiManifestFixture> CreateFixtureAsync(bool generateDocumentationFile = true)
     {
         var rootDirectory = Path.Combine(
             Path.GetTempPath(),
@@ -199,15 +520,16 @@ public class ApiManifestToolIntegrationTests
         var documentedProjectPath = Path.Combine(documentedProjectDirectory, "DocumentedLibrary.csproj");
         await File.WriteAllTextAsync(
             documentedProjectPath,
-            """
-            <Project Sdk="Microsoft.NET.Sdk">
+            $$"""
+            <Project Sdk="Microsoft.NET.Sdk.Razor">
               <PropertyGroup>
                 <TargetFramework>net10.0</TargetFramework>
                 <Nullable>enable</Nullable>
                 <ImplicitUsings>enable</ImplicitUsings>
-                <GenerateDocumentationFile>true</GenerateDocumentationFile>
+                <GenerateDocumentationFile>{{generateDocumentationFile}}</GenerateDocumentationFile>
                 <PackageId>DocumentedLibrary</PackageId>
-                <Version>1.0.0</Version>
+                <!-- like MinVer, the version is only set outside design-time builds -->
+                <Version Condition="'$(DesignTimeBuild)' != 'true'">1.2.3</Version>
               </PropertyGroup>
               <ItemGroup>
                 <FrameworkReference Include="Microsoft.AspNetCore.App" />
@@ -286,6 +608,49 @@ public class ApiManifestToolIntegrationTests
         );
 
         await File.WriteAllTextAsync(
+            Path.Combine(documentedProjectDirectory, "MapLegend.razor"),
+            """
+            @namespace DocumentedLibrary
+            @inherits Microsoft.AspNetCore.Components.ComponentBase
+
+            <p>@Title</p>
+
+            @code {
+                /// <summary>Legend title.</summary>
+                [Microsoft.AspNetCore.Components.Parameter]
+                public string? Title { get; set; }
+            }
+            """
+        );
+
+        await File.WriteAllTextAsync(
+            Path.Combine(documentedProjectDirectory, "MapPoint.cs"),
+            """
+            namespace DocumentedLibrary;
+
+            /// <summary>A point on the map.</summary>
+            public record MapPoint(double Latitude, double Longitude);
+            """
+        );
+
+        await File.WriteAllTextAsync(
+            Path.Combine(documentedProjectDirectory, "MapPointExtensions.cs"),
+            """
+            namespace DocumentedLibrary;
+
+            /// <summary>Map point helpers.</summary>
+            public static class MapPointExtensions
+            {
+                extension(MapPoint point)
+                {
+                    /// <summary>Whether the point is on the equator.</summary>
+                    public bool IsOnEquator => point.Latitude == 0;
+                }
+            }
+            """
+        );
+
+        await File.WriteAllTextAsync(
             Path.Combine(documentedProjectDirectory, "InternalHelper.cs"),
             """
             namespace DocumentedLibrary;
@@ -318,10 +683,21 @@ public class ApiManifestToolIntegrationTests
             """
         );
 
-        return new ApiManifestFixture(rootDirectory, docsProjectDirectory, docsProjectPath, documentedProjectPath);
+        return new ApiManifestFixture(
+            rootDirectory,
+            docsProjectDirectory,
+            docsProjectPath,
+            documentedProjectDirectory,
+            documentedProjectPath
+        );
     }
 
-    private static async Task ExecuteProcessAsync(string fileName, string arguments, TimeSpan timeout)
+    private static async Task<string> ExecuteProcessAsync(
+        string fileName,
+        string arguments,
+        TimeSpan timeout,
+        bool expectSuccess = true
+    )
     {
         using var process = Process.Start(
             new ProcessStartInfo
@@ -361,9 +737,11 @@ public class ApiManifestToolIntegrationTests
             );
         }
 
-        process
-            .ExitCode.Should()
-            .Be(0, $"process exited with code {process.ExitCode}. Output:\n{output}\nErrors:\n{error}");
+        (process.ExitCode == 0)
+            .Should()
+            .Be(expectSuccess, $"process exited with code {process.ExitCode}. Output:\n{output}\nErrors:\n{error}");
+
+        return output + error;
     }
 
     private static void TryDeleteDirectory(string path)
@@ -410,6 +788,24 @@ public class ApiManifestToolIntegrationTests
         string RootDirectory,
         string DocsProjectDirectory,
         string DocsProjectPath,
+        string DocumentedProjectDirectory,
         string DocumentedProjectPath
-    );
+    )
+    {
+        public string DocsAssemblyPath => Path.Combine(DocsProjectDirectory, "obj", "Debug", "net10.0", "DocsSite.dll");
+
+        public string StampPath =>
+            Path.Combine(DocsProjectDirectory, "obj", "Debug", "net10.0", "DocsSdk", "api-manifest.stamp");
+
+        public string ManifestPath =>
+            Path.Combine(
+                DocsProjectDirectory,
+                "obj",
+                "Debug",
+                "net10.0",
+                "DocsSdk",
+                "manifests",
+                "DocumentedLibrary.json"
+            );
+    }
 }

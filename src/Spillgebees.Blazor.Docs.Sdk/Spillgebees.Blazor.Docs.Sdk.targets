@@ -12,9 +12,10 @@
       1. DocsSdk_ExtractSources: scans .razor files for ExampleView<TComponent>
          references, finds matching source files in referenced projects, and
          embeds them as EmbeddedResource with LogicalName SourceEmbed:{FullTypeName}:{FileName}.
-      2. DocsSdk_GenerateApiManifest: runs a Roslyn build-time tool for
-         ProjectReference items opted in with DocsApi="true", then embeds the
-         generated JSON manifests as ApiManifest:{AssemblyName}.
+      2. DocsSdk_GenerateApiManifest: runs a Roslyn build-time tool on the built
+         assemblies of ProjectReference items opted in with DocsApi="true", then
+         embeds the generated JSON manifests as ApiManifest:{AssemblyName}. The
+         tool only runs when its inputs change.
   -->
 
   <!-- ================================================================== -->
@@ -346,14 +347,12 @@ EmbeddedSources = results.ToArray();
   <!-- ================================================================== -->
   <!-- API Manifest Generation                                             -->
   <!-- ================================================================== -->
-  <Target
-    Name="DocsSdk_GenerateApiManifest"
-    BeforeTargets="PrepareResourceNames;AssignTargetPaths"
-    DependsOnTargets="ResolveProjectReferences"
-  >
+  <Target Name="_DocsSdk_ResolveApiManifestInputs" DependsOnTargets="ResolveReferences">
     <PropertyGroup>
       <DocsSdk_ToolTfm Condition="'$(DocsSdk_ToolTfm)' == ''">net10.0</DocsSdk_ToolTfm>
-      <_DocsSdk_ApiManifestOutputDir>$(BaseIntermediateOutputPath)DocsSdk/manifests</_DocsSdk_ApiManifestOutputDir>
+      <_DocsSdk_ApiManifestIntermediateDir>$(IntermediateOutputPath)DocsSdk/</_DocsSdk_ApiManifestIntermediateDir>
+      <_DocsSdk_ApiManifestReferencesFile>$(_DocsSdk_ApiManifestIntermediateDir)api-manifest.references</_DocsSdk_ApiManifestReferencesFile>
+      <_DocsSdk_ApiManifestStampFile>$(_DocsSdk_ApiManifestIntermediateDir)api-manifest.stamp</_DocsSdk_ApiManifestStampFile>
       <_DocsSdk_PackagedApiManifestTool>$(MSBuildThisFileDirectory)tools/api-manifest/Spillgebees.Blazor.Docs.Sdk.ApiManifestTool.dll</_DocsSdk_PackagedApiManifestTool>
       <_DocsSdk_SourceApiManifestTool>$(MSBuildThisFileDirectory)../Spillgebees.Blazor.Docs.Sdk.ApiManifestTool/bin/$(Configuration)/$(DocsSdk_ToolTfm)/Spillgebees.Blazor.Docs.Sdk.ApiManifestTool.dll</_DocsSdk_SourceApiManifestTool>
       <_DocsSdk_SourceApiManifestToolProject>$(MSBuildThisFileDirectory)../Spillgebees.Blazor.Docs.Sdk.ApiManifestTool/Spillgebees.Blazor.Docs.Sdk.ApiManifestTool.csproj</_DocsSdk_SourceApiManifestToolProject>
@@ -364,41 +363,98 @@ EmbeddedSources = results.ToArray();
         >$(_DocsSdk_SourceApiManifestTool)</_DocsSdk_ApiManifestTool>
     </PropertyGroup>
 
+    <!--
+      The manifest is read from the assembly the referenced project already built, so the
+      project is never built a second time. Its XML documentation file supplies the summaries.
+    -->
     <ItemGroup>
-      <_DocsSdk_DocsApiProjectReference
-        Include="@(ProjectReference)"
-        Condition="'%(ProjectReference.DocsApi)' == 'true'"
+      <_DocsSdk_ApiAssembly
+        Include="@(_ResolvedProjectReferencePaths)"
+        Condition="'%(_ResolvedProjectReferencePaths.DocsApi)' == 'true'"
       />
+      <_DocsSdk_ApiAssembly>
+        <DocumentationFile>%(RootDir)%(Directory)%(Filename).xml</DocumentationFile>
+        <ManifestFile>$(_DocsSdk_ApiManifestIntermediateDir)manifests/%(Filename).json</ManifestFile>
+      </_DocsSdk_ApiAssembly>
     </ItemGroup>
 
-    <RemoveDir Directories="$(_DocsSdk_ApiManifestOutputDir)" />
-    <MakeDir Directories="$(_DocsSdk_ApiManifestOutputDir)" Condition="'@(_DocsSdk_DocsApiProjectReference)' != ''" />
+    <Error
+      Code="DOCSSDK002"
+      Text="[Docs SDK] '%(_DocsSdk_ApiAssembly.MSBuildSourceProjectFile)' has not been built, so its API manifest can't be generated. Expected '%(_DocsSdk_ApiAssembly.FullPath)'."
+      Condition="'%(_DocsSdk_ApiAssembly.Identity)' != '' and !Exists('%(_DocsSdk_ApiAssembly.FullPath)')"
+    />
+
+    <Warning
+      Code="DOCSSDK001"
+      Text="[Docs SDK] '%(_DocsSdk_ApiAssembly.MSBuildSourceProjectFile)' has no XML documentation file at '%(_DocsSdk_ApiAssembly.DocumentationFile)', so its API reference will have no summaries. Set GenerateDocumentationFile to true in that project."
+      Condition="'%(_DocsSdk_ApiAssembly.Identity)' != '' and !Exists('%(_DocsSdk_ApiAssembly.DocumentationFile)')"
+    />
 
     <Exec
       Command="dotnet build &quot;$(_DocsSdk_SourceApiManifestToolProject)&quot; -c &quot;$(Configuration)&quot; -nologo"
-      Condition="'@(_DocsSdk_DocsApiProjectReference)' != '' and '$(_DocsSdk_ApiManifestTool)' == '' and Exists('$(_DocsSdk_SourceApiManifestToolProject)')"
+      Condition="'@(_DocsSdk_ApiAssembly)' != '' and '$(_DocsSdk_ApiManifestTool)' == '' and Exists('$(_DocsSdk_SourceApiManifestToolProject)')"
     />
 
-    <PropertyGroup Condition="'@(_DocsSdk_DocsApiProjectReference)' != '' and '$(_DocsSdk_ApiManifestTool)' == '' and Exists('$(_DocsSdk_SourceApiManifestTool)')">
+    <PropertyGroup Condition="'@(_DocsSdk_ApiAssembly)' != '' and '$(_DocsSdk_ApiManifestTool)' == '' and Exists('$(_DocsSdk_SourceApiManifestTool)')">
       <_DocsSdk_ApiManifestTool>$(_DocsSdk_SourceApiManifestTool)</_DocsSdk_ApiManifestTool>
     </PropertyGroup>
 
     <Error
       Text="[Docs SDK] Could not locate the API manifest tool."
-      Condition="'@(_DocsSdk_DocsApiProjectReference)' != '' and '$(_DocsSdk_ApiManifestTool)' == ''"
+      Condition="'@(_DocsSdk_ApiAssembly)' != '' and '$(_DocsSdk_ApiManifestTool)' == ''"
     />
 
-    <Exec
-      Command="dotnet &quot;$(_DocsSdk_ApiManifestTool)&quot; --project &quot;%(_DocsSdk_DocsApiProjectReference.FullPath)&quot; --output &quot;$(_DocsSdk_ApiManifestOutputDir)&quot; --configuration &quot;$(Configuration)&quot;"
-      Condition="'@(_DocsSdk_DocsApiProjectReference)' != ''"
+    <WriteLinesToFile
+      File="$(_DocsSdk_ApiManifestReferencesFile)"
+      Lines="@(ReferencePath->'%(FullPath)')"
+      Overwrite="true"
+      WriteOnlyWhenDifferent="true"
+      Condition="'@(_DocsSdk_ApiAssembly)' != ''"
     />
 
-    <ItemGroup Condition="'@(_DocsSdk_DocsApiProjectReference)' != ''">
-      <_DocsSdk_GeneratedManifests Include="$(_DocsSdk_ApiManifestOutputDir)/*.json" />
-      <_DocsSdk_GeneratedManifests>
+    <!-- a deleted manifest is regenerated even when the inputs are older than the stamp -->
+    <Delete
+      Files="$(_DocsSdk_ApiManifestStampFile)"
+      Condition="'%(_DocsSdk_ApiAssembly.Identity)' != '' and !Exists('%(_DocsSdk_ApiAssembly.ManifestFile)')"
+    />
+
+    <!--
+      A missing XML documentation file stays in the inputs on purpose: MSBuild treats a missing input
+      as out of date, so deleting the file regenerates the manifest without its summaries.
+    -->
+    <ItemGroup Condition="'@(_DocsSdk_ApiAssembly)' != ''">
+      <_DocsSdk_ApiManifestInput Include="@(_DocsSdk_ApiAssembly);%(_DocsSdk_ApiAssembly.DocumentationFile)" />
+      <_DocsSdk_ApiManifestInput Include="@(ReferencePath)" />
+      <_DocsSdk_ApiManifestInput Include="$(_DocsSdk_ApiManifestReferencesFile);$(_DocsSdk_ApiManifestTool);$(MSBuildThisFileFullPath)" />
+    </ItemGroup>
+  </Target>
+
+  <Target
+    Name="_DocsSdk_GenerateApiManifestCore"
+    Condition="'@(_DocsSdk_ApiAssembly)' != ''"
+    Inputs="@(_DocsSdk_ApiManifestInput)"
+    Outputs="$(_DocsSdk_ApiManifestStampFile)"
+  >
+    <!-- the tool leaves a manifest untouched when its content is unchanged -->
+    <Exec Command="dotnet &quot;$(_DocsSdk_ApiManifestTool)&quot; --assembly &quot;%(_DocsSdk_ApiAssembly.FullPath)&quot; --documentation &quot;%(_DocsSdk_ApiAssembly.DocumentationFile)&quot; --references &quot;$(_DocsSdk_ApiManifestReferencesFile)&quot; --output &quot;%(_DocsSdk_ApiAssembly.ManifestFile)&quot;" />
+
+    <Touch Files="$(_DocsSdk_ApiManifestStampFile)" AlwaysCreate="true" />
+  </Target>
+
+  <Target
+    Name="DocsSdk_GenerateApiManifest"
+    BeforeTargets="PrepareResourceNames;AssignTargetPaths"
+    DependsOnTargets="_DocsSdk_ResolveApiManifestInputs;_DocsSdk_GenerateApiManifestCore"
+    Condition="'$(DesignTimeBuild)' != 'true'"
+  >
+    <!-- design-time builds can run before the referenced projects have been built -->
+    <ItemGroup Condition="'@(_DocsSdk_ApiAssembly)' != ''">
+      <_DocsSdk_ApiManifestFile Include="%(_DocsSdk_ApiAssembly.ManifestFile)" />
+      <_DocsSdk_ApiManifestFile>
         <LogicalName>ApiManifest:%(Filename)</LogicalName>
-      </_DocsSdk_GeneratedManifests>
-      <EmbeddedResource Include="@(_DocsSdk_GeneratedManifests)" />
+      </_DocsSdk_ApiManifestFile>
+      <EmbeddedResource Include="@(_DocsSdk_ApiManifestFile)" />
+      <FileWrites Include="@(_DocsSdk_ApiManifestFile);$(_DocsSdk_ApiManifestReferencesFile);$(_DocsSdk_ApiManifestStampFile)" />
     </ItemGroup>
   </Target>
 </Project>

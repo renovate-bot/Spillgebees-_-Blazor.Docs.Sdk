@@ -4,6 +4,10 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
+    <!-- the tool never shows compiler diagnostics, so Roslyn's translated resources are dead weight in the package -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <!-- the targets run the tool with `dotnet <dll>`, so the native launcher is never used -->
+    <UseAppHost>false</UseAppHost>
   </PropertyGroup>
 
   <ItemGroup>
@@ -11,12 +15,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Build.Framework" PrivateAssets="All" ExcludeAssets="runtime" />
-    <PackageReference Include="Microsoft.Build.Locator" PrivateAssets="All" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="All" />
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" PrivateAssets="All" />
-    <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" PrivateAssets="All" />
-    <!-- transitive dependency of Microsoft.Build.Framework; MSBuild must load its own copy at run time, so Microsoft.Build.Locator (MSBL001) requires it excluded like Framework -->
-    <PackageReference Include="Microsoft.NET.StringTools" PrivateAssets="All" ExcludeAssets="runtime" />
   </ItemGroup>
 </Project>
