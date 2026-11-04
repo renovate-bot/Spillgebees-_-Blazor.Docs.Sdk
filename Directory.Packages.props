@@ -23,7 +23,7 @@
     <!-- Testing -->
     <PackageVersion Include="AwesomeAssertions" Version="9.6.0" />
     <PackageVersion Include="bunit" Version="2.13.3" />
-    <PackageVersion Include="TUnit.Core" Version="1.79.0" />
-    <PackageVersion Include="TUnit.Engine" Version="1.79.0" />
+    <PackageVersion Include="TUnit.Core" Version="1.80.0" />
+    <PackageVersion Include="TUnit.Engine" Version="1.80.0" />
   </ItemGroup>
 </Project>
